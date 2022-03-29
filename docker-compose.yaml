@@ -1,0 +1,19 @@
+version: "3"
+
+services:
+  db:
+    image: postgres
+    restart: always
+    environment:
+      - POSTGRES_DB=rust_fullstack_todo
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=password
+    ports:
+      - "5432:5432"
+    volumes:
+      - db:/var/lib/posgresql/data
+      - ./schemas/00_init_tables.sql:/docker-entrypoint-initdb.d/00_init_tables.sql
+
+volumes:
+  db:
+    driver: local

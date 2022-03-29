@@ -1,13 +1,12 @@
 use actix_web::{HttpResponse, web};
 
-pub async fn delete_todo(_path: web::Path<u32>) -> HttpResponse {
+pub async fn delete_todo(_path: web::Path<i32>) -> HttpResponse {
     HttpResponse::Ok().finish()
 }
 
 #[cfg(test)]
 mod tests {
     use actix_web::{http, test};
-    use actix_web::body::to_bytes;
     use crate::handlers::todo_handler::configure;
     use crate::test_request;
 

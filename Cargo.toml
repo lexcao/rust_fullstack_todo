@@ -8,6 +8,14 @@ edition = "2021"
 [dependencies]
 actix-web = "4"
 env_logger = "0.9.0"
-log = "0.4"
-serde = { version = "1.0", features = ["derive"] }
+log = "0.4.14"
+serde = { version = "1.0.136", features = ["derive"] }
 serde_json = "1.0.79"
+config = "0.12.0"
+deadpool-postgres = { version = "0.10.1", features = ["serde"] }
+tokio-postgres = "0.7.5"
+tokio-pg-mapper = "0.2.0"
+tokio-pg-mapper-derive = "0.2.0"
+postgres-types = { version = "0.2.2", features = ["derive"] }
+anyhow = "1.0.56"
+thiserror = "1.0.30"

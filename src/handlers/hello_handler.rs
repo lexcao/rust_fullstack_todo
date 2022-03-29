@@ -5,7 +5,7 @@ pub fn configure(cfg: &mut web::ServiceConfig) {
 }
 
 async fn index() -> String {
-    "Hello world!".to_owned()
+    "Hello Actix Web!".to_owned()
 }
 
 #[cfg(test)]
@@ -15,7 +15,7 @@ mod tests {
     #[actix_web::test]
     async fn test_index() {
         let string = index().await;
-        assert_eq!(string, "Hello world!");
+        assert_eq!(string, "Hello Actix Web!");
     }
 }
 

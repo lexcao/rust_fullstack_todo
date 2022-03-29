@@ -31,10 +31,10 @@ deployment
 CREATE TABLE todos
 (
     id         SERIAL PRIMARY KEY,
-    content    TEXT      NOT NULL,
-    status     SMALLINT  NOT NULl,
-    created_at TIMESTAMP NOT NULL,
-    updated_at TIMESTAMP NOT NULL
+    content    TEXT        NOT NULL,
+    status     VARCHAR(32) NOT NULl,
+    created_at TIMESTAMP   NOT NULL,
+    updated_at TIMESTAMP   NOT NULL
 );
 ```
 
@@ -111,7 +111,7 @@ delete a **archive** todo
 src/
 - main.rs
 - lib.rs
-- apis/
+- handlers/
     - todo_handler.rs
 - applications/
     - todo_application_service.rs
@@ -125,3 +125,26 @@ tests/
 unit test
 e2e test
 integration test
+
+# Ideas
+
+* CRUD derive
+* REST Repository
+
+# Road map
+* [x] business error design
+  * [x] repo error
+  * [] service error
+  * [] api error
+* [] domain service mock repo test
+* [] domain service status machine
+* [] application service mock domain test
+* [] handler hooks into application
+* [] handler mock application test
+* [] api error design and handling
+* [] e2e test
+* [] repo `check` like test (data driven test)
+* [] more docs
+* [] more tests
+* [] abstraction Repository
+* [] abstraction CRUD 

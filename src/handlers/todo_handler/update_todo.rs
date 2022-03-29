@@ -1,19 +1,22 @@
 use actix_web::{HttpResponse, web};
-use crate::handlers::todo_handler::{CreateTodoRequest, TodoResponse, TodoStatus};
+use crate::domains::todo_domain::UpdateTodo;
+use crate::handlers::todo_handler::{CreateTodoRequest, TodoResponse};
+use crate::todo_handler::WrappedAnyhowError;
+use crate::TodoDomain;
 
 pub async fn update_todo(
-    path: web::Path<u32>,
+    domain: web::Data<TodoDomain>,
+    path: web::Path<i32>,
     body: web::Json<CreateTodoRequest>,
-) -> HttpResponse {
+) -> Result<HttpResponse, WrappedAnyhowError> {
     let id = path.into_inner();
     let todo = body.into_inner();
-    HttpResponse::Ok().json(
-        TodoResponse {
-            id,
-            content: todo.content,
-            status: TodoStatus::Todo,
-        }
-    )
+
+    let to_update = UpdateTodo { id, status: None, content: Some(todo.content) };
+
+    let res = domain.update_todo(to_update).await?;
+
+    Ok(HttpResponse::Ok().json(TodoResponse::from(res)))
 }
 
 #[cfg(test)]
