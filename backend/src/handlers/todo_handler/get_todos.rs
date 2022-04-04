@@ -27,7 +27,6 @@ mod tests {
     use actix_web::body::to_bytes;
     use actix_web::http;
     use actix_web::test::TestRequest;
-    use actix_web::web::Query;
     use crate::handlers::todo_handler::configure;
     use crate::test_request;
 

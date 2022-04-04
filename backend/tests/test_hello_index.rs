@@ -1,7 +1,7 @@
 use actix_web::{http, test,  App, Error};
 use actix_web::dev::Service;
 use actix_web::body::to_bytes;
-use rust_fullstack_todo::handlers::*;
+use backend::handlers::*;
 
 #[actix_web::test]
 async fn test_index() -> Result<(), Error> {
