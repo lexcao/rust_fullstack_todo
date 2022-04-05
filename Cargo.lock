@@ -638,6 +638,7 @@ version = "0.1.0"
 dependencies = [
  "gloo 0.6.1",
  "serde",
+ "web-sys",
  "yew",
 ]
 

@@ -148,3 +148,6 @@ integration test
 * [] more tests
 * [] abstraction Repository
 * [] abstraction CRUD 
+
+* [] design
+* [] ui + tailwindCSS

@@ -1,4 +1,15 @@
 [package]
-name = "rust_fullstack_todo_frontend"
+name = "frontend"
 version = "0.1.0"
 edition = "2021"
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+gloo = "0.6"
+yew = "0.19.3"
+
+[dependencies.web-sys]
+version = "0.3"
+features = [
+    "HtmlInputElement",
+]
