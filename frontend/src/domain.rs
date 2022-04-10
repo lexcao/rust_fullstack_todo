@@ -1,3 +1,4 @@
+use std::fmt::{Display, Formatter};
 use serde::*;
 
 #[derive(Deserialize, Serialize, Clone, Copy, Debug, PartialEq)]
@@ -9,9 +10,15 @@ pub enum TodoStatus {
     Deleted,
 }
 
+impl Display for TodoStatus {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
 #[derive(PartialEq, Clone, Deserialize, Serialize)]
 pub struct Todo {
-    pub id: usize,
+    pub id: u128,
     pub content: String,
     pub status: TodoStatus,
 }

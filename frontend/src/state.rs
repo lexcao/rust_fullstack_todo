@@ -1,5 +1,6 @@
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 use std::rc::Rc;
+use gloo::console::console_dbg;
 use gloo::storage::{LocalStorage, Storage};
 use yew::Reducible;
 use crate::domain::{Todo, TodoStatus};
@@ -7,13 +8,14 @@ use crate::domain::{Todo, TodoStatus};
 #[derive(Clone)]
 pub enum TodoAction {
     Add(String),
-    Edit(usize, String),
-    UpdateStatus(usize, TodoStatus),
+    Edit(u128, String),
+    UpdateStatus(u128, TodoStatus),
+    ClearDeleted,
 }
 
 #[derive(PartialEq)]
 pub struct TodoState {
-    pub todos: HashMap<usize, Todo>,
+    pub todos: BTreeMap<u128, Todo>,
 }
 
 impl TodoState {
@@ -27,7 +29,7 @@ const KEY: &str = "rust_fullstack_todo.todos";
 
 impl Default for TodoState {
     fn default() -> Self {
-        Self { todos: LocalStorage::get(KEY).unwrap_or_else(|_| HashMap::new()) }
+        Self { todos: LocalStorage::get(KEY).unwrap_or_else(|_| BTreeMap::new()) }
     }
 }
 
@@ -38,11 +40,16 @@ impl Reducible for TodoState {
         let next = match action {
             TodoAction::Add(content) => {
                 let mut todos = self.todos.clone();
-                let id = todos.len() + 1;
+
+                let current_timestamp = instant::SystemTime::now()
+                    .duration_since(instant::SystemTime::UNIX_EPOCH)
+                    .unwrap()
+                    .as_millis();
+                let id = current_timestamp;
+
                 let mut new_todo = Todo::new(&content);
                 new_todo.id = id;
                 todos.insert(id, new_todo);
-
                 todos
             }
             TodoAction::Edit(id, content) => {
@@ -58,6 +65,12 @@ impl Reducible for TodoState {
                     t.status = status
                 }
                 todos
+            }
+            TodoAction::ClearDeleted => {
+                self.todos.clone()
+                    .into_iter()
+                    .filter(|(_, v)| v.status != TodoStatus::Deleted)
+                    .collect()
             }
         };
 

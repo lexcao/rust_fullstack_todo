@@ -1,6 +1,7 @@
 mod app;
 mod state;
 mod domain;
+mod icon;
 
 use app::*;
 
