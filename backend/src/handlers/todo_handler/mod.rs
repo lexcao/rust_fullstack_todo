@@ -59,7 +59,7 @@ struct TodoResponse {
 impl From<Todo> for TodoResponse {
     fn from(todo: Todo) -> Self {
         Self {
-            id: todo.id,
+            id: todo.identify.1,
             content: todo.content,
             status: todo.status,
             created_at: todo.created_at,

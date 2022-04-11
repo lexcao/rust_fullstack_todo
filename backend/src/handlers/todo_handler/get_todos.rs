@@ -13,7 +13,7 @@ pub async fn get_todos(
     query: web::Query<GetTodosQuery>,
 ) -> Result<HttpResponse, WrappedAnyhowError> {
     let res: Vec<TodoResponse> = domain
-        .list_todo(query.into_inner().status).await
+        .list_todo("default".to_string(), query.into_inner().status).await
         .map_err(|e| WrappedAnyhowError { e })?
         .into_iter()
         .map(TodoResponse::from)
@@ -28,7 +28,7 @@ mod tests {
     use actix_web::http;
     use actix_web::test::TestRequest;
     use crate::handlers::todo_handler::configure;
-    use crate::test_request;
+    use crate::tests::test_request;
 
     #[actix_web::test]
     async fn test_get_todos() {

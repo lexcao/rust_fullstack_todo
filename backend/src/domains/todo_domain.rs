@@ -37,14 +37,16 @@ impl FromStr for TodoStatus {
 
 #[derive(Debug)]
 pub struct Todo {
-    pub id: i32,
+    pub identify: TodoIdentify,
     pub content: String,
     pub status: TodoStatus,
     pub created_at: SystemTime,
+    pub updated_at: SystemTime,
 }
 
+pub type TodoIdentify = (String, i32);
+
 pub struct UpdateTodo {
-    pub id: i32,
     pub content: Option<String>,
     pub status: Option<TodoStatus>,
 }
@@ -61,10 +63,11 @@ impl Todo {
 impl Default for Todo {
     fn default() -> Self {
         Self {
-            id: 0,
+            identify: ("default".to_string(), 0),
             content: "".to_string(),
             status: TodoStatus::Todo,
             created_at: SystemTime::now(),
+            updated_at: SystemTime::now(),
         }
     }
 }
@@ -83,16 +86,16 @@ impl TodoDomain {
         Self { repo: TodoRepository::new(pool) }
     }
 
-    pub async fn list_todo(&self, status: Option<TodoStatus>) -> Result<Vec<Todo>> {
-        self.repo.query_todos(status).await
+    pub async fn list_todo(&self, namespace: String, status: Option<TodoStatus>) -> Result<Vec<Todo>> {
+        self.repo.query_todos(namespace, status).await
     }
 
     pub async fn create_todo(&self, todo: Todo) -> Result<Todo> {
         self.repo.insert_todo(Todo::create(&todo.content)).await
     }
 
-    pub async fn update_todo(&self, to_update: UpdateTodo) -> Result<Todo> {
-        let mut found = self.repo.query_by_id(to_update.id).await?;
+    pub async fn update_todo(&self, id: TodoIdentify, to_update: UpdateTodo) -> Result<Todo> {
+        let mut found = self.repo.query_by_id(id).await?;
 
         found.content = to_update.content.unwrap_or_else(|| found.content);
         let to_status = to_update.status.unwrap_or_else(|| found.status);
@@ -103,7 +106,7 @@ impl TodoDomain {
     }
 
     pub async fn toggle_todo(&self, todo: Todo) -> Result<Todo> {
-        let mut todo = self.repo.query_by_id(todo.id).await?;
+        let mut todo = self.repo.query_by_id(todo.identify).await?;
 
         let new_status = match todo.status {
             TodoStatus::Todo => TodoStatus::Done,
@@ -116,7 +119,7 @@ impl TodoDomain {
         self.repo.update_todo(todo).await
     }
     pub async fn archive_todo(&self, todo: Todo) -> Result<Todo> {
-        let mut found = self.repo.query_by_id(todo.id).await?;
+        let mut found = self.repo.query_by_id(todo.identify).await?;
 
         let new_status = match found.status {
             TodoStatus::Done => TodoStatus::Archived,
@@ -125,10 +128,10 @@ impl TodoDomain {
 
         found.status = new_status;
 
-        self.repo.update_todo(todo).await
+        self.repo.update_todo(found).await
     }
     pub async fn delete_todo(&self, todo: Todo) -> Result<Todo> {
-        let mut found = self.repo.query_by_id(todo.id).await?;
+        let mut found = self.repo.query_by_id(todo.identify).await?;
 
         let new_status = match found.status {
             TodoStatus::Archived => TodoStatus::Deleted,
@@ -137,7 +140,7 @@ impl TodoDomain {
 
         found.status = new_status;
 
-        self.repo.update_todo(todo).await
+        self.repo.update_todo(found).await
     }
 }
 

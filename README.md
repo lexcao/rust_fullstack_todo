@@ -11,11 +11,10 @@ Learn Rust by doing.
 web
 
 - actix-web
-- diesel
 
 web-assembly
 
-- yum
+- yew
 
 deployment
 
@@ -30,15 +29,26 @@ deployment
 ```postgresql
 CREATE TABLE todos
 (
-    id         SERIAL PRIMARY KEY,
+    namespace  VARCHAR(36) NOT NULL,
+    id         SERIAL      NOT NULL,
     content    TEXT        NOT NULL,
     status     VARCHAR(32) NOT NULl,
     created_at TIMESTAMP   NOT NULL,
-    updated_at TIMESTAMP   NOT NULL
+    updated_at TIMESTAMP   NOT NULL,
+    PRIMARY KEY (namespace, id)
 );
 ```
 
 ## API Endpoints
+
+### Common Header
+
+short for `todo namespace`
+default to: default
+
+```text
+t-NS: {NS}
+```
 
 ### GET /todos
 
@@ -56,6 +66,7 @@ body
 [
   {
     "id": 1,
+    "namespace": "default",
     "content": "first thing",
     "status": "todo",
     "create_at": 1647151812778
@@ -66,6 +77,8 @@ body
 ### POST /todos
 
 create a todo
+
+body
 
 ```json
 {
@@ -122,9 +135,7 @@ src/
 tests/
 ```
 
-unit test
-e2e test
-integration test
+unit test e2e test integration test
 
 # Ideas
 
@@ -132,10 +143,11 @@ integration test
 * REST Repository
 
 # Road map
+
 * [x] business error design
-  * [x] repo error
-  * [] service error
-  * [] api error
+    * [x] repo error
+    * [] service error
+    * [] api error
 * [] domain service mock repo test
 * [] domain service status machine
 * [] application service mock domain test
@@ -147,7 +159,17 @@ integration test
 * [] more docs
 * [] more tests
 * [] abstraction Repository
-* [] abstraction CRUD 
+* [] abstraction CRUD
 
-* [] design
-* [] ui + tailwindCSS
+* [x] design
+* [x] ui + tailwindCSS
+
+* [x] backend: add field to identify each client
+* [] frontend: split components to files
+* [] frontend: integration with backend
+* [] deploy: backend to heroku
+    * [] backend: add api for heath check
+    * [] frontend: add switch to backend
+* [] deploy: frontend
+
+* [] blog: write tutorials

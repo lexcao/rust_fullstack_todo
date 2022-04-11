@@ -38,7 +38,7 @@ pub fn assert_vec<T: PartialEq + Debug>(a: &[T], b: &[T]) {
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use actix_web::{App, test};
     use actix_web::body::{BoxBody, to_bytes};
     use actix_web::dev::ServiceResponse;
@@ -47,7 +47,7 @@ mod tests {
     use actix_web::web::ServiceConfig;
 
     #[cfg(test)]
-    async fn test_request<C>(
+    pub async fn test_request<C>(
         configure: C,
         req: TestRequest,
         expect_status_code: StatusCode,

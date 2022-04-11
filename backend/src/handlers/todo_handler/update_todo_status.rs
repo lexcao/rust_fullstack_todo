@@ -10,9 +10,9 @@ pub async fn update_todo_status(
 ) -> Result<HttpResponse, WrappedAnyhowError> {
     let (id, status) = path.into_inner();
 
-    let to_update = UpdateTodo { id, status: Some(status), content: None };
+    let to_update = UpdateTodo { status: Some(status), content: None };
 
-    let res = domain.update_todo(to_update).await?;
+    let res = domain.update_todo(("default".to_string(), id), to_update).await?;
 
     Ok(HttpResponse::Ok().json(TodoResponse::from(res)))
 }
@@ -22,7 +22,7 @@ mod tests {
     use actix_web::{http, test};
     use actix_web::body::to_bytes;
     use crate::handlers::todo_handler::configure;
-    use crate::test_request;
+    use crate::tests::test_request;
 
     #[actix_web::test]
     async fn test_update_todo_status() {

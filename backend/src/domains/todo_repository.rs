@@ -5,12 +5,13 @@ use super::todo_domain::TodoStatus;
 use tokio_pg_mapper::FromTokioPostgresRow;
 use tokio_pg_mapper_derive::PostgresMapper;
 use postgres_types::{FromSql, ToSql};
-use crate::domains::todo_domain::Todo;
+use crate::domains::todo_domain::{Todo, TodoIdentify};
 use anyhow::Result;
 
 #[derive(PostgresMapper, Debug, FromSql, ToSql)]
 #[pg_mapper(table = "todos")]
 struct TodoEntity {
+    namespace: String,
     id: i32,
     content: String,
     status: String,
@@ -28,34 +29,35 @@ impl TodoRepository {
         Self { db }
     }
 
-    pub async fn query_by_id(&self, id: i32) -> Result<Todo> {
+    pub async fn query_by_id(&self, (namespace, id): TodoIdentify) -> Result<Todo> {
         let client = self.db.get().await?;
 
         let statement = client
-            .prepare_cached("SELECT * FROM todos WHERE id = $1").await?;
+            .prepare_cached("SELECT * FROM todos WHERE namespace = $1 AND id = $2").await?;
 
-        let row = client.query_one(&statement, &[&id]).await?;
+        let row = client.query_one(&statement, &[&namespace, &id]).await?;
 
         let entity = TodoEntity::from_row(row).map(Todo::from)?;
 
         Ok(entity)
     }
 
-    pub async fn query_todos(&self, status: Option<TodoStatus>) -> Result<Vec<Todo>> {
+    pub async fn query_todos(&self, namespace: String, status: Option<TodoStatus>) -> Result<Vec<Todo>> {
         let client = self.db.get().await?;
 
+        // todo improve
         let rows = match status {
             Some(value) => {
                 let statement = client
-                    .prepare_cached( "SELECT * FROM todos WHERE status = $1").await?;
+                    .prepare_cached("SELECT * FROM todos WHERE namespace = $1 AND status = $2").await?;
 
-                client.query(&statement, &[&value.to_string()]).await?
+                client.query(&statement, &[&namespace, &value.to_string()]).await?
             }
             None => {
                 let statement = client
-                    .prepare_cached( "SELECT * FROM todos").await?;
+                    .prepare_cached("SELECT * FROM todos WHERE namespace = $1").await?;
 
-                client.query(&statement, &[]).await?
+                client.query(&statement, &[&namespace]).await?
             }
         };
 
@@ -74,13 +76,14 @@ impl TodoRepository {
         let client = self.db.get().await?;
 
         let statement = client.prepare_cached(r#"
-                INSERT INTO todos (content, status, created_at, updated_at)
-                VALUES ($1, $2, $3, $4)
+                INSERT INTO todos (namespace, content, status, created_at, updated_at)
+                VALUES ($1, $2, $3, $4, $5)
                 RETURNING *
                 "#).await?;
 
         let row = client.query_one(&statement,
                                    &[
+                                       &entity.namespace,
                                        &entity.content,
                                        &entity.status,
                                        &entity.created_at,
@@ -98,14 +101,15 @@ impl TodoRepository {
         let client = self.db.get().await?;
 
         let statement = client.prepare_cached(r#"
-            UPDATE todos SET content = $2, status = $3, updated_at = $4
-            WHERE id = $1
+            UPDATE todos SET content = $3, status = $4, updated_at = $5
+            WHERE namespace = $1 AND id = $2
             RETURNING *
         "#).await?;
 
         let row = client.query_one(
             &statement,
             &[
+                &entity.namespace,
                 &entity.id,
                 &entity.content,
                 &entity.status,
@@ -118,13 +122,13 @@ impl TodoRepository {
     }
 
     #[allow(unused)]
-    pub async fn delete_todo(&self, todo: Todo) -> Result<bool> {
+    pub async fn delete_todo(&self, (namespace, id): TodoIdentify) -> Result<bool> {
         let client = self.db.get().await?;
 
         let statement = client
-            .prepare_cached("DELETE FROM todos WHERE id = $1").await?;
+            .prepare_cached("DELETE FROM todos WHERE namespace = $1 AND id = $2").await?;
 
-        let rows = client.execute(&statement, &[&todo.id]).await?;
+        let rows = client.execute(&statement, &[&namespace, &id]).await?;
 
         Ok(rows == 1)
     }
@@ -133,7 +137,8 @@ impl TodoRepository {
 impl From<Todo> for TodoEntity {
     fn from(todo: Todo) -> Self {
         Self {
-            id: todo.id,
+            namespace: todo.identify.0,
+            id: todo.identify.1,
             content: todo.content,
             status: todo.status.to_string(),
             created_at: todo.created_at,
@@ -145,10 +150,11 @@ impl From<Todo> for TodoEntity {
 impl From<TodoEntity> for Todo {
     fn from(todo: TodoEntity) -> Self {
         Self {
-            id: todo.id,
+            identify: (todo.namespace, todo.id),
             content: todo.content,
             status: TodoStatus::from_str(&todo.status).unwrap(),
             created_at: todo.created_at,
+            updated_at: todo.updated_at,
         }
     }
 }
@@ -175,17 +181,19 @@ mod tests {
         TodoRepository::new(test_db())
     }
 
+    static NS: &'static str = "default";
+
     #[actix_web::test]
     async fn query_by_id() {
         let repo = repo();
-        let not_found = repo.query_by_id(123).await;
+        let not_found = repo.query_by_id((NS.to_string(), 123)).await;
 
         assert!(not_found.is_err());
 
         let created = repo.insert_todo(Todo::create("new todo")).await
             .unwrap();
 
-        let found = repo.query_by_id(created.id).await.unwrap();
+        let found = repo.query_by_id(created.identify).await.unwrap();
         assert_eq!(found.content, created.content);
         assert_eq!(found.status, created.status)
     }
@@ -193,7 +201,7 @@ mod tests {
     #[actix_web::test]
     async fn query_todos() {
         let repository = repo();
-        let todos = repository.query_todos(None).await;
+        let todos = repository.query_todos(NS.to_string(), None).await;
         println!("{:?}", todos);
     }
 
@@ -202,7 +210,8 @@ mod tests {
         let todo = Todo::create("new todo");
         let created = repo().insert_todo(todo).await.unwrap();
 
-        assert_ne!(created.id, 0);
+        assert_ne!(created.identify.1, 0);
+        assert_eq!(created.identify.0, "default");
         assert_eq!(created.content, "new todo".to_string());
         assert_eq!(created.status, TodoStatus::Todo);
     }
@@ -216,11 +225,12 @@ mod tests {
 
         created.content = "updated todo".to_string();
         created.status = TodoStatus::Done;
-        let id = created.id;
+
+        let id = created.identify.clone();
 
         let updated = repo.update_todo(created).await.unwrap();
 
-        assert_eq!(updated.id, id);
+        assert_eq!(updated.identify, id);
         assert_eq!(updated.content, "updated todo".to_string());
         assert_eq!(updated.status, TodoStatus::Done);
     }
@@ -231,7 +241,7 @@ mod tests {
         let todo = Todo::create("new todo");
         let created = repo.insert_todo(todo).await.unwrap();
 
-        let deleted = repo.delete_todo(created).await.unwrap();
+        let deleted = repo.delete_todo(created.identify).await.unwrap();
 
         assert!(deleted);
     }

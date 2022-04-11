@@ -8,7 +8,7 @@ pub async fn delete_todo(_path: web::Path<i32>) -> HttpResponse {
 mod tests {
     use actix_web::{http, test};
     use crate::handlers::todo_handler::configure;
-    use crate::test_request;
+    use crate::tests::test_request;
 
     #[actix_web::test]
     async fn test_update_todo_status() {
