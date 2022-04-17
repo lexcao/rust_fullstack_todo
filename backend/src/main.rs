@@ -1,15 +1,16 @@
-use backend::*;
-use backend::infra::config::Config;
+use env_logger::Env;
+use backend::start_server;
+use backend::infra::{db, config};
 
-#[actix_web::main]
+#[tokio::main]
 async fn main() -> std::io::Result<()> {
-    std::env::set_var("RUST_LOG", "backend=INFO");
-    env_logger::init();
+    env_logger::builder()
+        .parse_env(Env::default().default_filter_or("INFO"))
+        .init();
 
-    let config = Config::init()
-        .expect("load config failed");
+    let config = config::must_get();
 
-    log::info!("LOAD Config: {:?}", config);
+    let db_pool = db::must_init(&config.db);
 
-    start_server(config).await
+    start_server(config.address(), db_pool).await
 }
