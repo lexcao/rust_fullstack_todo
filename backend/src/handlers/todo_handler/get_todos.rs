@@ -1,7 +1,8 @@
 use actix_web::{web, HttpResponse};
 use crate::handlers::todo_handler::{TodoResponse, TodoStatus, WrappedAnyhowError};
-use crate::TodoDomain;
 use serde::Deserialize;
+use crate::domains::todo_domain::TodoDomainTrait;
+use crate::Namespace;
 
 #[derive(Deserialize)]
 pub struct GetTodosQuery {
@@ -9,12 +10,13 @@ pub struct GetTodosQuery {
 }
 
 pub async fn get_todos(
-    domain: web::Data<TodoDomain>,
+    domain: web::Data<dyn TodoDomainTrait>,
+    namespace: web::ReqData<Namespace>,
     query: web::Query<GetTodosQuery>,
 ) -> Result<HttpResponse, WrappedAnyhowError> {
     let res: Vec<TodoResponse> = domain
-        .list_todo("default".to_string(), query.into_inner().status).await
-        .map_err(|e| WrappedAnyhowError { e })?
+        .list_todo(namespace.get(), query.into_inner().status).await
+        .map_err(|err| WrappedAnyhowError { err })?
         .into_iter()
         .map(TodoResponse::from)
         .collect();
@@ -24,21 +26,66 @@ pub async fn get_todos(
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
     use actix_web::body::to_bytes;
-    use actix_web::http;
+    use actix_web::{App, test, web};
     use actix_web::test::TestRequest;
-    use crate::handlers::todo_handler::configure;
-    use crate::tests::test_request;
+    use crate::domains::todo_domain::{Todo, TodoDomainTrait, TodoID, TodoStatus, UpdateTodo};
+    use crate::handlers::routes;
+    use crate::Namespace;
+    use actix_web::dev::Service;
+
+    struct Mock {}
+
+    impl Mock {
+        fn new() -> Self {
+            Mock {}
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl TodoDomainTrait for Mock {
+        async fn get_todo_by_id(&self, _id: TodoID) -> anyhow::Result<Todo> {
+            Ok(Todo::default())
+        }
+
+        async fn list_todo(&self, _namespace: String, _status: Option<TodoStatus>) -> anyhow::Result<Vec<Todo>> {
+            Ok(vec![])
+        }
+
+        async fn create_todo(&self, _namespace: String, _content: &str) -> anyhow::Result<Todo> {
+            Ok(Todo::default())
+        }
+
+        async fn update_todo(&self, _id: TodoID, _to_update: UpdateTodo) -> anyhow::Result<Todo> {
+            Ok(Todo::default())
+        }
+
+        async fn clear_todos(&self, _namespace: String, _ids: Vec<i32>) -> anyhow::Result<()> {
+            Ok(())
+        }
+    }
 
     #[actix_web::test]
     async fn test_get_todos() {
-        let request = TestRequest::get().uri("/");
+        let service = Arc::new(Mock::new()) as Arc<dyn TodoDomainTrait>;
 
-        // TODO mock application data
-        let response = test_request(configure, request, http::StatusCode::OK).await;
+        let app = App::new()
+            .wrap_fn(|req, srv| {
+                Namespace::inject(&req);
+                srv.call(req)
+            })
+            .app_data(web::Data::from(service))
+            .configure(routes);
+
+        let app = test::init_service(app).await;
+        let request = TestRequest::get().uri("/todos");
+        let response = request.send_request(&app).await;
+        assert_eq!(response.status().as_u16(), 200);
+
         let body_bytes = to_bytes(response.into_body()).await.unwrap();
 
-        assert_eq!(body_bytes, r##"{"id":1,"content":"first thing","status":"Todo"}"##, );
+        assert_eq!(body_bytes, r##"[]"##, );
     }
 
     #[actix_web::test]

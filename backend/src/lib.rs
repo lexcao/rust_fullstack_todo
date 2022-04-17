@@ -1,40 +1,41 @@
+extern crate core;
+
 use actix_web::{middleware, App, HttpServer, web};
-use std::fmt::Debug;
-use std::io;
-use std::io::ErrorKind;
-use tokio_postgres::NoTls;
-use crate::domains::todo_domain::TodoDomain;
+use std::net::TcpListener;
+use std::sync::Arc;
+use actix_web::dev::{Server, Service};
+use deadpool_postgres::Pool;
+use handlers::Namespace;
+use crate::domains::todo_domain::{TodoDomain, TodoDomainTrait};
 use crate::handlers::todo_handler;
-use crate::infra::config::Config;
 
 pub mod handlers;
 pub mod applications;
 pub mod domains;
 pub mod infra;
 
-pub async fn start_server(config: Config) -> std::io::Result<()> {
-    let pool = config.db.create_pool(None, NoTls)
-        .map_err(|e| io::Error::new(ErrorKind::NotConnected, e))?;
-
-    log::info!("starting HTTP server at http://localhost:{}", config.server.port);
+pub fn start_server(listener: TcpListener, db_pool: Pool) -> Server {
+    let address = listener.local_addr().unwrap();
+    log::info!("starting HTTP server at {}", address);
 
     HttpServer::new(move || {
+        let todo_domain = TodoDomain::new(db_pool.clone());
+        let todo_domain_trait = Arc::new(todo_domain.clone())
+            as Arc<dyn TodoDomainTrait>;
+
         App::new()
+            .wrap_fn(|req, srv| {
+                Namespace::inject(&req);
+                srv.call(req)
+            })
             .wrap(middleware::Logger::default())
-            .app_data(web::Data::new(TodoDomain::new(pool.clone())))
+            .app_data(web::Data::from(todo_domain_trait.clone()))
+            .app_data(web::Data::new(todo_domain.clone()))
             .configure(handlers::routes)
     })
-        .bind(("127.0.0.1", config.server.port))?
+        .listen(listener)
+        .expect("Address is already in use")
         .run()
-        .await
-}
-
-pub fn assert_vec<T: PartialEq + Debug>(a: &[T], b: &[T]) {
-    assert_eq!(a.len(), b.len(), "length not equal");
-
-    for (i, _) in a.iter().enumerate() {
-        assert_eq!(a[i], b[i]);
-    }
 }
 
 #[cfg(test)]

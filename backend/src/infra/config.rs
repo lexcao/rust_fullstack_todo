@@ -1,3 +1,4 @@
+use std::net::TcpListener;
 use config::{ConfigError, File, FileFormat};
 use serde::Deserialize;
 
@@ -13,13 +14,19 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn init() -> Result<Config, ConfigError> {
-        config::Config::builder()
-            .add_source(File::new("application", FileFormat::Toml))
-            .set_default("server.port", 8000)?
-            .build()
-            .and_then(|c| {
-                c.try_deserialize::<Config>()
-            })
+    pub fn address(&self) -> TcpListener {
+        TcpListener::bind(format!("127.0.0.1:{}", self.server.port))
+            .expect("Failed to bind port")
     }
+}
+
+pub fn get() -> Result<Config, ConfigError> {
+    config::Config::builder()
+        .add_source(File::new("application", FileFormat::Toml))
+        .build()?
+        .try_deserialize()
+}
+
+pub fn must_get() -> Config {
+    get().expect("Failed to get config from application.toml")
 }

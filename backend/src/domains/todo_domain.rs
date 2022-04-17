@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::domains::todo_repository::TodoRepository;
 use anyhow::{Error, Result};
 use thiserror::Error;
+use async_trait::async_trait;
 
 #[derive(Deserialize, Serialize, Debug, PartialEq)]
 #[serde(rename_all = "lowercase")]
@@ -37,14 +38,14 @@ impl FromStr for TodoStatus {
 
 #[derive(Debug)]
 pub struct Todo {
-    pub identify: TodoIdentify,
+    pub id: TodoID,
     pub content: String,
     pub status: TodoStatus,
     pub created_at: SystemTime,
     pub updated_at: SystemTime,
 }
 
-pub type TodoIdentify = (String, i32);
+pub type TodoID = (String, i32);
 
 pub struct UpdateTodo {
     pub content: Option<String>,
@@ -52,8 +53,9 @@ pub struct UpdateTodo {
 }
 
 impl Todo {
-    pub fn create(content: &str) -> Self {
+    pub fn create(namespace: &str, content: &str) -> Self {
         Self {
+            id: (namespace.to_string(), 0),
             content: content.to_string(),
             ..Default::default()
         }
@@ -63,7 +65,7 @@ impl Todo {
 impl Default for Todo {
     fn default() -> Self {
         Self {
-            identify: ("default".to_string(), 0),
+            id: ("default".to_string(), 0),
             content: "".to_string(),
             status: TodoStatus::Todo,
             created_at: SystemTime::now(),
@@ -72,8 +74,45 @@ impl Default for Todo {
     }
 }
 
+#[async_trait]
 pub trait TodoDomainTrait {
-    fn list_todo(&self, _status: Option<TodoStatus>) -> Result<Vec<Todo>>;
+    async fn get_todo_by_id(&self, id: TodoID) -> Result<Todo>;
+    async fn list_todo(&self, namespace: String, status: Option<TodoStatus>) -> Result<Vec<Todo>>;
+    async fn create_todo(&self, namespace: String, content: &str) -> Result<Todo>;
+    async fn update_todo(&self, id: TodoID, to_update: UpdateTodo) -> Result<Todo>;
+    async fn clear_todos(&self, namespace: String, ids: Vec<i32>) -> Result<()>;
+}
+
+#[async_trait]
+impl TodoDomainTrait for TodoDomain {
+    async fn get_todo_by_id(&self, id: TodoID) -> Result<Todo> {
+        self.repo.query_by_id(id).await
+    }
+
+    async fn list_todo(&self, namespace: String, status: Option<TodoStatus>) -> Result<Vec<Todo>> {
+        self.repo.query_todos(namespace, status).await
+    }
+
+    async fn create_todo(&self, namespace: String, content: &str) -> Result<Todo> {
+        self.repo.insert_todo(Todo::create(&namespace, &content)).await
+    }
+
+    async fn update_todo(&self, id: TodoID, to_update: UpdateTodo) -> Result<Todo> {
+        let mut found = self.repo.query_by_id(id).await?;
+
+        found.content = to_update.content.unwrap_or_else(|| found.content);
+        let to_status = to_update.status.unwrap_or_else(|| found.status);
+        // TODO check status
+        found.status = to_status;
+
+        self.repo.update_todo(found).await
+    }
+
+    async fn clear_todos(&self, namespace: String, ids: Vec<i32>) -> Result<()> {
+        self.repo.clear_todos(namespace, ids).await?;
+
+        Ok(())
+    }
 }
 
 #[derive(Clone)]
@@ -90,11 +129,11 @@ impl TodoDomain {
         self.repo.query_todos(namespace, status).await
     }
 
-    pub async fn create_todo(&self, todo: Todo) -> Result<Todo> {
-        self.repo.insert_todo(Todo::create(&todo.content)).await
+    pub async fn create_todo(&self, namespace: &str, content: &str) -> Result<Todo> {
+        self.repo.insert_todo(Todo::create(namespace, content)).await
     }
 
-    pub async fn update_todo(&self, id: TodoIdentify, to_update: UpdateTodo) -> Result<Todo> {
+    pub async fn update_todo(&self, id: TodoID, to_update: UpdateTodo) -> Result<Todo> {
         let mut found = self.repo.query_by_id(id).await?;
 
         found.content = to_update.content.unwrap_or_else(|| found.content);
@@ -106,7 +145,7 @@ impl TodoDomain {
     }
 
     pub async fn toggle_todo(&self, todo: Todo) -> Result<Todo> {
-        let mut todo = self.repo.query_by_id(todo.identify).await?;
+        let mut todo = self.repo.query_by_id(todo.id).await?;
 
         let new_status = match todo.status {
             TodoStatus::Todo => TodoStatus::Done,
@@ -119,7 +158,7 @@ impl TodoDomain {
         self.repo.update_todo(todo).await
     }
     pub async fn archive_todo(&self, todo: Todo) -> Result<Todo> {
-        let mut found = self.repo.query_by_id(todo.identify).await?;
+        let mut found = self.repo.query_by_id(todo.id).await?;
 
         let new_status = match found.status {
             TodoStatus::Done => TodoStatus::Archived,
@@ -131,7 +170,7 @@ impl TodoDomain {
         self.repo.update_todo(found).await
     }
     pub async fn delete_todo(&self, todo: Todo) -> Result<Todo> {
-        let mut found = self.repo.query_by_id(todo.identify).await?;
+        let mut found = self.repo.query_by_id(todo.id).await?;
 
         let new_status = match found.status {
             TodoStatus::Archived => TodoStatus::Deleted,

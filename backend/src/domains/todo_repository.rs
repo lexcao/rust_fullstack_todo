@@ -5,8 +5,9 @@ use super::todo_domain::TodoStatus;
 use tokio_pg_mapper::FromTokioPostgresRow;
 use tokio_pg_mapper_derive::PostgresMapper;
 use postgres_types::{FromSql, ToSql};
-use crate::domains::todo_domain::{Todo, TodoIdentify};
+use crate::domains::todo_domain::{Todo, TodoID};
 use anyhow::Result;
+use crate::infra::db::RecordNotFound;
 
 #[derive(PostgresMapper, Debug, FromSql, ToSql)]
 #[pg_mapper(table = "todos")]
@@ -29,17 +30,19 @@ impl TodoRepository {
         Self { db }
     }
 
-    pub async fn query_by_id(&self, (namespace, id): TodoIdentify) -> Result<Todo> {
+    pub async fn query_by_id(&self, (namespace, id): TodoID) -> Result<Todo> {
         let client = self.db.get().await?;
 
         let statement = client
             .prepare_cached("SELECT * FROM todos WHERE namespace = $1 AND id = $2").await?;
 
-        let row = client.query_one(&statement, &[&namespace, &id]).await?;
-
-        let entity = TodoEntity::from_row(row).map(Todo::from)?;
-
-        Ok(entity)
+        match client.query_opt(&statement, &[&namespace, &id]).await? {
+            None => Err(RecordNotFound.into()),
+            Some(row) => {
+                let entity = TodoEntity::from_row(row).map(Todo::from)?;
+                Ok(entity)
+            }
+        }
     }
 
     pub async fn query_todos(&self, namespace: String, status: Option<TodoStatus>) -> Result<Vec<Todo>> {
@@ -121,24 +124,23 @@ impl TodoRepository {
         Ok(entity)
     }
 
-    #[allow(unused)]
-    pub async fn delete_todo(&self, (namespace, id): TodoIdentify) -> Result<bool> {
+    pub async fn clear_todos(&self, namespace: String, ids: Vec<i32>) -> Result<bool> {
         let client = self.db.get().await?;
 
         let statement = client
-            .prepare_cached("DELETE FROM todos WHERE namespace = $1 AND id = $2").await?;
+            .prepare_cached("DELETE FROM todos WHERE namespace = $1 AND id = ANY($2)").await?;
 
-        let rows = client.execute(&statement, &[&namespace, &id]).await?;
+        let rows = client.execute(&statement, &[&namespace, &ids]).await?;
 
-        Ok(rows == 1)
+        Ok(rows as usize == ids.len())
     }
 }
 
 impl From<Todo> for TodoEntity {
     fn from(todo: Todo) -> Self {
         Self {
-            namespace: todo.identify.0,
-            id: todo.identify.1,
+            namespace: todo.id.0,
+            id: todo.id.1,
             content: todo.content,
             status: todo.status.to_string(),
             created_at: todo.created_at,
@@ -150,7 +152,7 @@ impl From<Todo> for TodoEntity {
 impl From<TodoEntity> for Todo {
     fn from(todo: TodoEntity) -> Self {
         Self {
-            identify: (todo.namespace, todo.id),
+            id: (todo.namespace, todo.id),
             content: todo.content,
             status: TodoStatus::from_str(&todo.status).unwrap(),
             created_at: todo.created_at,
@@ -162,19 +164,13 @@ impl From<TodoEntity> for Todo {
 #[cfg(test)]
 mod tests {
     use deadpool_postgres::Pool;
-    use tokio_postgres::NoTls;
     use crate::domains::todo_domain::{Todo, TodoStatus};
+    use crate::infra::{db, config};
+    use crate::infra::db::RecordNotFound;
     use super::TodoRepository;
 
     fn test_db() -> Pool {
-        let mut config = deadpool_postgres::Config::default();
-        config.dbname = Some("rust_fullstack_todo".to_string());
-        config.host = Some("localhost".to_string());
-        config.port = Some(5432);
-        config.user = Some("user".to_string());
-        config.password = Some("password".to_string());
-
-        config.create_pool(None, NoTls).unwrap()
+        db::must_init(&config::must_get().db)
     }
 
     fn repo() -> TodoRepository {
@@ -189,11 +185,12 @@ mod tests {
         let not_found = repo.query_by_id((NS.to_string(), 123)).await;
 
         assert!(not_found.is_err());
+        assert!(not_found.unwrap_err().is::<RecordNotFound>());
 
-        let created = repo.insert_todo(Todo::create("new todo")).await
+        let created = repo.insert_todo(Todo::create(&NS, "new todo")).await
             .unwrap();
 
-        let found = repo.query_by_id(created.identify).await.unwrap();
+        let found = repo.query_by_id(created.id).await.unwrap();
         assert_eq!(found.content, created.content);
         assert_eq!(found.status, created.status)
     }
@@ -207,11 +204,11 @@ mod tests {
 
     #[actix_web::test]
     async fn insert_todo() {
-        let todo = Todo::create("new todo");
+        let todo = Todo::create(&NS, "new todo");
         let created = repo().insert_todo(todo).await.unwrap();
 
-        assert_ne!(created.identify.1, 0);
-        assert_eq!(created.identify.0, "default");
+        assert_ne!(created.id.1, 0);
+        assert_eq!(created.id.0, "default");
         assert_eq!(created.content, "new todo".to_string());
         assert_eq!(created.status, TodoStatus::Todo);
     }
@@ -220,28 +217,30 @@ mod tests {
     async fn update_todo() {
         let repo = repo();
 
-        let todo = Todo::create("new todo");
+        let todo = Todo::create(&NS, "new todo");
         let mut created = repo.insert_todo(todo).await.unwrap();
 
         created.content = "updated todo".to_string();
         created.status = TodoStatus::Done;
 
-        let id = created.identify.clone();
+        let id = created.id.clone();
 
         let updated = repo.update_todo(created).await.unwrap();
 
-        assert_eq!(updated.identify, id);
+        assert_eq!(updated.id, id);
         assert_eq!(updated.content, "updated todo".to_string());
         assert_eq!(updated.status, TodoStatus::Done);
     }
 
     #[actix_web::test]
-    async fn delete_todo() {
+    async fn clear_todos() {
+        let mut ids_to_clear = vec![];
         let repo = repo();
-        let todo = Todo::create("new todo");
+        let todo = Todo::create(&NS, "new todo");
         let created = repo.insert_todo(todo).await.unwrap();
+        ids_to_clear.push(created.id.1);
 
-        let deleted = repo.delete_todo(created.identify).await.unwrap();
+        let deleted = repo.clear_todos(NS.to_string(), ids_to_clear).await.unwrap();
 
         assert!(deleted);
     }

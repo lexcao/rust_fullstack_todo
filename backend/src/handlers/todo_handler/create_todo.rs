@@ -1,16 +1,17 @@
 use actix_web::{web, HttpResponse};
-use crate::domains::todo_domain::Todo;
 use crate::handlers::todo_handler::{CreateTodoRequest, TodoResponse};
 use crate::todo_handler::WrappedAnyhowError;
-use crate::TodoDomain;
+use crate::{Namespace, TodoDomain};
 
 pub async fn create_todo(
     domain: web::Data<TodoDomain>,
+    namespace: web::ReqData<Namespace>,
     body: web::Json<CreateTodoRequest>,
 ) -> Result<HttpResponse, WrappedAnyhowError> {
+    let namespace = namespace.get();
     let todo = body.into_inner();
 
-    let res = domain.create_todo(Todo::create(&todo.content)).await?;
+    let res = domain.create_todo(&namespace, &todo.content).await?;
 
     Ok(HttpResponse::Created().json(TodoResponse::from(res)))
 }
