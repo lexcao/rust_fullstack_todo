@@ -1,11 +1,9 @@
-mod todo;
-
 use reqwest::Client;
-pub use todo::*;
-
 use reqwest::header::HeaderMap;
 
-pub const NS: &str = "testing/integration";
+mod todo_client;
+
+pub use todo_client::TodoClient;
 
 #[derive(Clone)]
 pub struct ScopeClient {

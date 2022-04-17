@@ -1,12 +1,12 @@
 use std::str::FromStr;
 use std::time::SystemTime;
 use deadpool_postgres::Pool;
-use super::todo_domain::TodoStatus;
 use tokio_pg_mapper::FromTokioPostgresRow;
 use tokio_pg_mapper_derive::PostgresMapper;
 use postgres_types::{FromSql, ToSql};
 use crate::domains::todo_domain::{Todo, TodoID};
 use anyhow::Result;
+use common::model::TodoStatus;
 use crate::infra::db::RecordNotFound;
 
 #[derive(PostgresMapper, Debug, FromSql, ToSql)]
@@ -164,7 +164,8 @@ impl From<TodoEntity> for Todo {
 #[cfg(test)]
 mod tests {
     use deadpool_postgres::Pool;
-    use crate::domains::todo_domain::{Todo, TodoStatus};
+    use common::model::TodoStatus;
+    use crate::domains::todo_domain::Todo;
     use crate::infra::{db, config};
     use crate::infra::db::RecordNotFound;
     use super::TodoRepository;
@@ -182,7 +183,7 @@ mod tests {
     #[actix_web::test]
     async fn query_by_id() {
         let repo = repo();
-        let not_found = repo.query_by_id((NS.to_string(), 123)).await;
+        let not_found = repo.query_by_id((NS.to_string(), 99999)).await;
 
         assert!(not_found.is_err());
         assert!(not_found.unwrap_err().is::<RecordNotFound>());

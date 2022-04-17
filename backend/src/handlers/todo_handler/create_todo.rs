@@ -1,5 +1,5 @@
 use actix_web::{web, HttpResponse};
-use crate::handlers::todo_handler::{CreateTodoRequest, TodoResponse};
+use common::model::{CreateTodoRequest, TodoResponse};
 use crate::todo_handler::WrappedAnyhowError;
 use crate::{Namespace, TodoDomain};
 

@@ -1,8 +1,9 @@
 use actix_web::{web, HttpResponse};
-use crate::handlers::todo_handler::{TodoResponse, TodoStatus, WrappedAnyhowError};
 use serde::Deserialize;
+use common::model::{TodoResponse, TodoStatus};
 use crate::domains::todo_domain::TodoDomainTrait;
 use crate::Namespace;
+use crate::todo_handler::WrappedAnyhowError;
 
 #[derive(Deserialize)]
 pub struct GetTodosQuery {
@@ -30,10 +31,11 @@ mod tests {
     use actix_web::body::to_bytes;
     use actix_web::{App, test, web};
     use actix_web::test::TestRequest;
-    use crate::domains::todo_domain::{Todo, TodoDomainTrait, TodoID, TodoStatus, UpdateTodo};
+    use crate::domains::todo_domain::{Todo, TodoDomainTrait, TodoID, UpdateTodo};
     use crate::handlers::routes;
     use crate::Namespace;
     use actix_web::dev::Service;
+    use common::model::TodoStatus;
 
     struct Mock {}
 

@@ -1,40 +1,9 @@
-use std::fmt::{Display, Formatter};
-use std::str::FromStr;
 use std::time::SystemTime;
-use serde::{Deserialize, Serialize};
 use crate::domains::todo_repository::TodoRepository;
-use anyhow::{Error, Result};
+use anyhow::Result;
 use thiserror::Error;
 use async_trait::async_trait;
-
-#[derive(Deserialize, Serialize, Debug, PartialEq)]
-#[serde(rename_all = "lowercase")]
-pub enum TodoStatus {
-    Todo,
-    Done,
-    Archived,
-    Deleted,
-}
-
-impl Display for TodoStatus {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
-    }
-}
-
-impl FromStr for TodoStatus {
-    type Err = Error;
-
-    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
-        match s {
-            "Todo" => Ok(TodoStatus::Todo),
-            "Done" => Ok(TodoStatus::Done),
-            "Archived" => Ok(TodoStatus::Archived),
-            "Deleted" => Ok(TodoStatus::Deleted),
-            _ => Err(TodoError::InvalidStatusFromStr(s.to_string()).into())
-        }
-    }
-}
+use common::model::TodoStatus;
 
 #[derive(Debug)]
 pub struct Todo {
@@ -196,8 +165,6 @@ trait TodoStatusMachine {}
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     #[actix_web::test]
     async fn check() {}
 }

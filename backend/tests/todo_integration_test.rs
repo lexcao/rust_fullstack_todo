@@ -1,16 +1,13 @@
-use std::env;
-use backend::domains::todo_domain::TodoStatus;
-use backend::domains::todo_domain::TodoStatus::Done;
-use backend::handlers::todo_handler::{CreateTodoRequest, TodoResponse, UpdateTodoRequest};
-use crate::client::{NS, TodoClient};
+use common::client::{TodoClient, ScopeClient};
+use common::model::{CreateTodoRequest, TodoResponse, TodoStatus, UpdateTodoRequest};
 
-mod client;
+pub const NS: &str = "testing/integration";
 
 #[tokio::test]
 async fn get_todos() -> anyhow::Result<()> {
     let base_url = spawn_server();
 
-    let client = client::ScopeClient::default()
+    let client = ScopeClient::default()
         .endpoint(&base_url)
         .namespace(&format!("{}{}", NS, "/get_todos"))
         .todo_client();
@@ -26,7 +23,7 @@ async fn get_todos() -> anyhow::Result<()> {
 async fn get_todos_not_empty() -> anyhow::Result<()> {
     let base_url = spawn_server();
 
-    let client = client::ScopeClient::default()
+    let client = ScopeClient::default()
         .endpoint(&base_url)
         .namespace(&format!("{}{}", NS, "/not_empty"))
         .todo_client();
@@ -102,7 +99,7 @@ async fn update_todo() -> anyhow::Result<()> {
     // then update
     let updated = client.update_todo(id, UpdateTodoRequest {
         content: Some("Update todo".to_string()),
-        status: Some(Done),
+        status: Some(TodoStatus::Done),
     }).await?;
 
     // assert
@@ -135,7 +132,7 @@ fn spawn_server() -> String {
 fn client() -> TodoClient {
     let base_url = spawn_server();
 
-    client::ScopeClient::default()
+    ScopeClient::default()
         .endpoint(&base_url)
         .namespace(NS)
         .todo_client()

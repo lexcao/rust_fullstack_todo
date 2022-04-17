@@ -1,8 +1,6 @@
 use std::ops::Deref;
-use backend::domains::todo_domain::TodoStatus;
-use backend::handlers::IdsRequest;
-use backend::handlers::todo_handler::{CreateTodoRequest, TodoResponse, UpdateTodoRequest};
-use crate::client::ScopeClient;
+use crate::model::{CreateTodoRequest, IdsRequest, TodoResponse, TodoStatus, UpdateTodoRequest};
+use super::ScopeClient;
 
 pub struct TodoClient(ScopeClient);
 

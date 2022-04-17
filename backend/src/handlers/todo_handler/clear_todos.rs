@@ -1,6 +1,6 @@
 use actix_web::{HttpResponse, web};
+use common::model::IdsRequest;
 use crate::{Namespace, TodoDomainTrait};
-use crate::handlers::IdsRequest;
 use crate::todo_handler::WrappedAnyhowError;
 
 pub async fn clear_todos(

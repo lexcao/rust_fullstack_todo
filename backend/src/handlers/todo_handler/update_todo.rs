@@ -1,8 +1,9 @@
 use actix_web::{HttpResponse, web};
 use serde_json::json;
+use common::model::UpdateTodoRequest;
 use crate::domains::todo_domain::UpdateTodo;
 use crate::handlers::todo_handler::TodoResponse;
-use crate::todo_handler::{UpdateTodoRequest, WrappedAnyhowError};
+use crate::todo_handler::WrappedAnyhowError;
 use crate::{Namespace, TodoDomainTrait};
 
 pub async fn update_todo(
