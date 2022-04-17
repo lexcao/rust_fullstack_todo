@@ -3,6 +3,7 @@ extern crate core;
 use actix_web::{middleware, App, HttpServer, web};
 use std::net::TcpListener;
 use std::sync::Arc;
+use actix_cors::Cors;
 use actix_web::dev::{Server, Service};
 use deadpool_postgres::Pool;
 use handlers::Namespace;
@@ -29,6 +30,7 @@ pub fn start_server(listener: TcpListener, db_pool: Pool) -> Server {
                 srv.call(req)
             })
             .wrap(middleware::Logger::default())
+            .wrap(Cors::permissive())
             .app_data(web::Data::from(todo_domain_trait.clone()))
             .app_data(web::Data::new(todo_domain.clone()))
             .configure(handlers::routes)
