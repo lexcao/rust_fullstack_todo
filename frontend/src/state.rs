@@ -1,27 +1,32 @@
-use std::collections::BTreeMap;
 use std::rc::Rc;
-use gloo::console::console_dbg;
 use gloo::storage::{LocalStorage, Storage};
 use yew::Reducible;
-use crate::domain::{Todo, TodoStatus};
+use common::model::{TodoStatus, UpdateTodoRequest};
+use crate::domain::{create_todo, Todo};
 
 #[derive(Clone)]
 pub enum TodoAction {
     Add(String),
-    Edit(u128, String),
-    UpdateStatus(u128, TodoStatus),
+    Update(i32, UpdateTodoRequest),
     ClearDeleted,
+    Refresh,
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Clone)]
 pub struct TodoState {
-    pub todos: BTreeMap<u128, Todo>,
+    pub locals: Vec<Todo>,
+    pub refresh: bool,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct TodoContext {
+    pub enable_remote: bool,
 }
 
 impl TodoState {
     pub fn save_to_local(&self) {
-        LocalStorage::set(KEY, self.todos.clone())
-            .expect("failed to save")
+        LocalStorage::set(KEY, self.locals.clone())
+            .expect("failed to save");
     }
 }
 
@@ -29,7 +34,10 @@ const KEY: &str = "rust_fullstack_todo.todos";
 
 impl Default for TodoState {
     fn default() -> Self {
-        Self { todos: LocalStorage::get(KEY).unwrap_or_else(|_| BTreeMap::new()) }
+        Self {
+            locals: LocalStorage::get(KEY).unwrap_or_else(|_| Vec::new()),
+            refresh: true,
+        }
     }
 }
 
@@ -39,41 +47,36 @@ impl Reducible for TodoState {
     fn reduce(self: Rc<Self>, action: Self::Action) -> Rc<Self> {
         let next = match action {
             TodoAction::Add(content) => {
-                let mut todos = self.todos.clone();
+                let mut locals = self.locals.clone();
+                let todo = create_todo(&locals.len(), &content);
+                locals.insert(0, todo);
 
-                let current_timestamp = instant::SystemTime::now()
-                    .duration_since(instant::SystemTime::UNIX_EPOCH)
-                    .unwrap()
-                    .as_millis();
-                let id = current_timestamp;
-
-                let mut new_todo = Todo::new(&content);
-                new_todo.id = id;
-                todos.insert(id, new_todo);
-                todos
+                locals
             }
-            TodoAction::Edit(id, content) => {
-                let mut todos = self.todos.clone();
-                if let Some(t) = todos.get_mut(&id) {
-                    t.content = content
+            TodoAction::Update(id, update) => {
+                let mut locals = self.locals.clone();
+                if let Some(index) = locals.iter().position(|it| it.id == id) {
+                    if let Some(content) = update.content {
+                        locals[index].content = content
+                    }
+                    if let Some(status) = update.status {
+                        locals[index].status = status
+                    }
                 }
-                todos
-            }
-            TodoAction::UpdateStatus(id, status) => {
-                let mut todos = self.todos.clone();
-                if let Some(t) = todos.get_mut(&id) {
-                    t.status = status
-                }
-                todos
+                locals
             }
             TodoAction::ClearDeleted => {
-                self.todos.clone()
+                self.locals.clone()
                     .into_iter()
-                    .filter(|(_, v)| v.status != TodoStatus::Deleted)
+                    .filter(|it| it.status != TodoStatus::Deleted)
                     .collect()
             }
+            _ => { self.locals.clone() }
         };
 
-        Rc::new(Self { todos: next })
+        Rc::new(Self {
+            locals: next,
+            refresh: !self.refresh,
+        })
     }
 }

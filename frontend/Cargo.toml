@@ -4,10 +4,13 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-serde = { version = "1.0", features = ["derive"] }
 gloo = "0.6"
 yew = "0.19.3"
-instant = { version = "0.1", features = [ "wasm-bindgen", "inaccurate" ] }
+yew-hooks = "0.1.53"
+instant = { version = "0.1", features = ["wasm-bindgen", "inaccurate"] }
+serde = { version = "1.0.136", features = ["derive"] }
+common = { path = "../common" }
+wasm-bindgen-futures = "0.4.30"
 
 [dependencies.web-sys]
 version = "0.3"

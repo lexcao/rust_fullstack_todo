@@ -1,12 +1,16 @@
+use std::rc::Rc;
 use yew::prelude::*;
-use web_sys::{HtmlInputElement, Node};
-use crate::domain::{Todo, TodoStatus};
-use crate::state::{TodoAction, TodoState};
+use web_sys::HtmlInputElement;
+use yew_hooks::{use_async, use_async_with_options, UseAsyncOptions};
+use common::client::{ScopeClient, TodoClient};
+use common::model::{CreateTodoRequest, TodoStatus, UpdateTodoRequest};
+use crate::domain::{Todo};
+use crate::state::{TodoAction, TodoContext, TodoState};
 use crate::icon;
 
 #[derive(Properties, PartialEq, Clone)]
 pub struct TodoControlProps {
-    id: u128,
+    id: i32,
     status: TodoStatus,
     editing: bool,
     on_edit: Callback<MouseEvent>,
@@ -22,11 +26,41 @@ pub fn todo_control(
     let on_save_editing = on_save_editing.clone();
     let editing = *editing;
 
+    let update_todo_param = use_state(|| Option::<TodoStatus>::None);
+    let update_todo_status = {
+        let id = id.clone() as i32;
+        let status_to_update = update_todo_param.clone().clone();
+        let d = dispatcher.clone();
+        use_async(async move {
+            let result = todo_client().update_todo(id, UpdateTodoRequest {
+                content: None,
+                status: *status_to_update,
+            }).await;
+
+            d.dispatch(TodoAction::Refresh);
+
+            result.map_err(|e| e.to_string())
+        })
+    };
+
+    let context = use_context::<TodoContext>().expect("no ctx found");
     let update_status = {
         |status: TodoStatus| {
             let id = id.clone();
             let d = dispatcher.clone();
-            Callback::from(move |_| { d.dispatch(TodoAction::UpdateStatus(id, status)) })
+            let param = update_todo_param.clone();
+            let update_todo_status = update_todo_status.clone();
+            Callback::from(move |_| {
+                if context.enable_remote {
+                    param.set(Some(status));
+                    update_todo_status.run();
+                } else {
+                    d.dispatch(TodoAction::Update(id, UpdateTodoRequest {
+                        content: None,
+                        status: Some(status),
+                    }))
+                }
+            })
         }
     };
 
@@ -124,39 +158,64 @@ fn todo_details(TodoDetailsProps { todo, dispatcher }: &TodoDetailsProps) -> Htm
         Callback::from(move |_| editing.set(!*editing))
     };
 
-    let input_ref = use_node_ref();
+    let update_todo_param = use_state(|| String::new());
+    let update_todo_content = {
+        let id = todo.id.clone() as i32;
+        let param = update_todo_param.clone();
+        let d = dispatcher.clone();
+        use_async(async move {
+            let result = todo_client().update_todo(id, UpdateTodoRequest {
+                content: Some(param.to_string()),
+                status: None,
+            }).await.map_err(|e| e.to_string());
 
-    let handle_input = |input_ref: &NodeRef,
-                        d: &UseReducerDispatcher<TodoState>,
-                        editing: &UseStateHandle<bool>,
-                        id: u128| {
-        if let Some(input) = input_ref.cast::<HtmlInputElement>() {
-            let value = input.value();
-            if value == "" {
-                return;
-            }
-            d.dispatch(TodoAction::Edit(id, value));
-            editing.set(false);
-        }
+            d.dispatch(TodoAction::Refresh);
+
+            result
+        })
     };
 
-    let on_save_editing = {
-        let id = todo.id.clone();
-        let input_ref = input_ref.clone();
-        let editing = editing.clone();
+    let input_ref = use_node_ref();
+    let context = use_context::<TodoContext>().expect("no ctx found");
+    let handle_input = Rc::new({
         let d = dispatcher.clone();
+        let id = todo.id.clone();
+        let editing = editing.clone();
+        let update_todo_content = update_todo_content.clone();
+        let param = update_todo_param.clone();
+        let input_ref = input_ref.clone();
+        move || {
+            if let Some(input) = input_ref.cast::<HtmlInputElement>() {
+                let value = input.value();
+                let value = value.trim();
+                if value.len() == 0 {
+                    return;
+                }
+                if context.enable_remote {
+                    param.set(value.to_string());
+                    update_todo_content.run();
+                } else {
+                    d.dispatch(TodoAction::Update(id, UpdateTodoRequest {
+                        content: Some(value.to_string()),
+                        status: None,
+                    }));
+                }
+                editing.set(false);
+            }
+        }
+    });
+
+    let on_save_editing = {
+        let handle_input = handle_input.clone();
         Callback::from(move |_: MouseEvent| {
-            handle_input(&input_ref, &d, &editing, id);
+            handle_input();
         })
     };
 
     let on_enter_press = {
-        let id = todo.id.clone();
-        let input_ref = input_ref.clone();
-        let editing = editing.clone();
-        let d = dispatcher.clone();
+        let handle_input = handle_input.clone();
         Callback::from(move |e: KeyboardEvent| if e.key() == "Enter" {
-            handle_input(&input_ref, &d, &editing, id);
+            handle_input();
         })
     };
 
@@ -205,31 +264,61 @@ struct AddTodoProps {
 #[function_component(AddTodo)]
 fn add_todo(AddTodoProps { dispatcher }: &AddTodoProps) -> Html {
     let input_ref = use_node_ref();
+    let dispatcher = dispatcher.clone();
 
-    let handle_input = |input_ref: &NodeRef, d: &UseReducerDispatcher<TodoState>| {
-        if let Some(input) = input_ref.cast::<HtmlInputElement>() {
-            let value = input.value();
-            if value == "" {
-                return;
-            }
-            d.dispatch(TodoAction::Add(value));
-            input.set_value("");
-        }
+    let create_todo_param = use_state(|| String::new());
+    let create_todo = {
+        let d = dispatcher.clone();
+        let param = create_todo_param.clone();
+        use_async_with_options(async move {
+            let content = param.to_string();
+            let result = todo_client()
+                .create_todo(CreateTodoRequest { content }).await
+                .map_err(|e| e.to_string());
+
+            d.dispatch(TodoAction::Refresh);
+
+            result
+        }, UseAsyncOptions { auto: false })
     };
 
-    let on_submit = {
+    let context = use_context::<TodoContext>().expect("no ctx found");
+    let handle_input = Rc::new({
         let input_ref = input_ref.clone();
+        let param = create_todo_param.clone();
         let d = dispatcher.clone();
+        let context = context.clone();
+        let create_todo = create_todo.clone();
+
+        move || {
+            if let Some(input) = input_ref.cast::<HtmlInputElement>() {
+                let value = input.value();
+                let value = value.trim();
+                if value.len() == 0 {
+                    return;
+                }
+                if context.enable_remote {
+                    param.set(value.to_string());
+                    create_todo.run();
+                } else {
+                    d.dispatch(TodoAction::Add(value.to_string()));
+                }
+                input.set_value("");
+            }
+        }
+    });
+
+    let on_submit = {
+        let handle_input = handle_input.clone();
         Callback::from(move |_: MouseEvent| {
-            handle_input(&input_ref, &d);
+            handle_input();
         })
     };
 
     let on_enter_press = {
-        let input_ref = input_ref.clone();
-        let d = dispatcher.clone();
+        let handle_input = handle_input.clone();
         Callback::from(move |e: KeyboardEvent| if e.key() == "Enter" {
-            handle_input(&input_ref, &d);
+            handle_input();
         })
     };
 
@@ -249,44 +338,109 @@ fn add_todo(AddTodoProps { dispatcher }: &AddTodoProps) -> Html {
     }
 }
 
+
+fn todo_client() -> TodoClient {
+    ScopeClient::default()
+        .namespace("test")
+        .endpoint("http://localhost:3000")
+        .todo_client()
+}
+
 #[function_component(App)]
 pub fn app() -> Html {
     let state = use_reducer(TodoState::default);
     let status_tab = use_state(|| Option::<TodoStatus>::None);
 
-    use_effect_with_deps(
-        move |state| {
-            state.save_to_local();
-            || ()
-        },
-        state.clone(),
-    );
+    let context = use_state(|| TodoContext {
+        enable_remote: true,
+    });
 
-    let todo_data = state.todos.values()
-        .rev()
-        .filter(|todo| {
-            status_tab.is_none() ||
-                (status_tab.is_some() && todo.status == status_tab.unwrap())
-        })
-        .collect::<Vec<&Todo>>();
+    let data = {
+        let state = state.clone();
+        let context = context.clone();
 
-    let todo_elements = todo_data.iter()
+        if context.enable_remote {
+            let remotes = {
+                let status_tab = status_tab.clone();
+                use_async_with_options(async move {
+                    todo_client()
+                        .get_todos(*status_tab).await
+                        .map_err(|e| e.to_string())
+                        .map(|it|
+                            it.into_iter()
+                                .map(|it| Todo {
+                                    status: it.status,
+                                    content: it.content,
+                                    id: it.id as i32,
+                                })
+                                .collect::<Vec<Todo>>()
+                        )
+                }, UseAsyncOptions { auto: false })
+            };
+
+            {
+                let remotes = remotes.clone();
+                let state = state.clone();
+                let refresh = state.refresh;
+                use_effect_with_deps(
+                    move |_| {
+                        remotes.run();
+                        || ()
+                    },
+                    refresh,
+                );
+            }
+
+            match remotes.data.clone() {
+                Some(data) => data,
+                None => vec![],
+            }
+        } else {
+            {
+                let state = state.clone();
+                let refresh = state.refresh;
+                use_effect_with_deps(
+                    move |_| {
+                        state.save_to_local();
+                        || ()
+                    },
+                    refresh,
+                );
+            }
+
+            state.locals
+                .iter()
+                .cloned()
+                .filter(|todo| {
+                    status_tab.is_none() ||
+                        (status_tab.is_some() && todo.status == status_tab.unwrap())
+                })
+                .collect::<Vec<Todo>>()
+        }
+    };
+
+    let todo_elements = data.iter()
         .map(|todo| html! {
             <TodoDetails todo={(*todo).clone()} dispatcher={state.dispatcher()}/>
         }).collect::<Html>();
 
     let on_tab_select = {
         let status_tab = status_tab.clone();
+        let state = state.clone();
         Callback::from(move |status: Option<TodoStatus>| {
-            status_tab.set(status)
+            if status == *status_tab {
+                return;
+            }
+            status_tab.set(status);
+            state.dispatch(TodoAction::Refresh);
         })
     };
 
-    let empty_todos = todo_data.is_empty();
+    let empty_todos = data.is_empty();
     let show_clear_deleted_button = *status_tab == Some(TodoStatus::Deleted) && !empty_todos;
 
     html! {
-        <>
+        <ContextProvider<TodoContext> context={(*context).clone()}>
             <section class="hero is-link">
                 <div class="hero-body">
                     <Header />
@@ -301,7 +455,9 @@ pub fn app() -> Html {
                     <ClearDeletedButton dispatcher={state.dispatcher()} />
                 }
                 <div class="container" style="min-height:calc(100vh - 200px);overflow:visible">
-                if empty_todos {
+                /*if remotes.loading {
+                    <p class="has-text-centered heading">{ "--- Loading ---" }</p>
+                } else*/ if empty_todos {
                     <p class="has-text-centered heading">{ "--- Empty ---" }</p>
                 } else {
                     { todo_elements }
@@ -311,7 +467,7 @@ pub fn app() -> Html {
             <section class="footer">
                 <Footer />
             </section>
-        </>
+        </ContextProvider<TodoContext>>
     }
 }
 
@@ -324,12 +480,37 @@ pub struct ClearDeletedButtonProps {
 pub fn clear_deleted_button(ClearDeletedButtonProps { dispatcher }: &ClearDeletedButtonProps) -> Html {
     let confirm_status = use_state(|| false);
 
+    let clear_deleted = {
+        let d = dispatcher.clone();
+
+        use_async(async move {
+            let to_delete_ids = todo_client().get_todos(Some(TodoStatus::Deleted)).await
+                .unwrap_or_else(|_| Vec::new())
+                .into_iter()
+                .map(|it| it.id)
+                .collect::<Vec<i32>>();
+
+            let result = todo_client().clear_todos(to_delete_ids).await
+                .map(|_| "ok".to_string())
+                .map_err(|e| e.to_string());
+
+            d.dispatch(TodoAction::Refresh);
+
+            result
+        })
+    };
+
+    let context = use_context::<TodoContext>().expect("no ctx found");
     let on_click = {
         let confirm_status = confirm_status.clone();
         let d = dispatcher.clone();
         Callback::from(move |_| {
             if *confirm_status {
-                d.dispatch(TodoAction::ClearDeleted);
+                if context.enable_remote {
+                    clear_deleted.run();
+                } else {
+                    d.dispatch(TodoAction::ClearDeleted);
+                }
                 confirm_status.set(false);
             } else {
                 confirm_status.set(true);

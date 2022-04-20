@@ -1,34 +1,17 @@
-use std::fmt::{Display, Formatter};
 use serde::*;
-
-#[derive(Deserialize, Serialize, Clone, Copy, Debug, PartialEq)]
-#[serde(rename_all = "lowercase")]
-pub enum TodoStatus {
-    Todo,
-    Done,
-    Archived,
-    Deleted,
-}
-
-impl Display for TodoStatus {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{:?}", self)
-    }
-}
+use common::model::TodoStatus;
 
 #[derive(PartialEq, Clone, Deserialize, Serialize)]
 pub struct Todo {
-    pub id: u128,
+    pub id: i32,
     pub content: String,
     pub status: TodoStatus,
 }
 
-impl Todo {
-    pub fn new(content: &str) -> Self {
-        Self {
-            id: 0,
-            content: content.to_string(),
-            status: TodoStatus::Todo,
-        }
+pub fn create_todo(id: &usize, content: &str) -> Todo {
+    Todo {
+        id: *id as i32,
+        status: TodoStatus::Todo,
+        content: content.to_string(),
     }
 }

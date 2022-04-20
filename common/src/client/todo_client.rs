@@ -23,10 +23,15 @@ impl TodoClient {
         let mut request = self.inner.get(&format!("{}/todos", self.endpoint));
 
         if let Some(status) = status {
-            request = request.query(&["status", &status.to_string()]);
+            request = request.query(&[("status", &status)]);
         }
 
         let response = request.send().await?;
+
+        if response.status() != 200 {
+            println!("{:?}", response.bytes().await.unwrap());
+            unreachable!();
+        }
 
         let data = response.json::<Vec<TodoResponse>>().await?;
 
@@ -51,6 +56,11 @@ impl TodoClient {
             .json(&body)
             .send().await?;
 
+        if response.status() != 201 {
+            println!("{:?}", response.bytes().await.unwrap());
+            unreachable!();
+        }
+
         let data = response.json::<TodoResponse>().await?;
 
         Ok(data)
@@ -60,6 +70,11 @@ impl TodoClient {
         let response = self.inner.patch(&format!("{}/todos/{}", self.endpoint, id))
             .json(&body)
             .send().await?;
+
+        if response.status() != 200 {
+            println!("{:?}", response.bytes().await.unwrap());
+            unreachable!();
+        }
 
         let data = response.json::<TodoResponse>().await?;
 

@@ -9,7 +9,7 @@ pub struct IdsRequest<T> {
     pub ids: Vec<T>,
 }
 
-#[derive(Deserialize, Serialize, Debug, PartialEq)]
+#[derive(Deserialize, Serialize, Debug, PartialEq, Clone, Copy)]
 #[serde(rename_all = "lowercase")]
 pub enum TodoStatus {
     Todo,
@@ -43,13 +43,13 @@ pub struct CreateTodoRequest {
     pub content: String,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Clone)]
 pub struct UpdateTodoRequest {
     pub content: Option<String>,
     pub status: Option<TodoStatus>,
 }
 
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Clone)]
 pub struct TodoResponse {
     pub namespace: String,
     pub id: i32,
