@@ -52,13 +52,13 @@ impl TodoRepository {
         let rows = match status {
             Some(value) => {
                 let statement = client
-                    .prepare_cached("SELECT * FROM todos WHERE namespace = $1 AND status = $2").await?;
+                    .prepare_cached("SELECT * FROM todos WHERE namespace = $1 AND status = $2 ORDER BY id DESC").await?;
 
                 client.query(&statement, &[&namespace, &value.to_string()]).await?
             }
             None => {
                 let statement = client
-                    .prepare_cached("SELECT * FROM todos WHERE namespace = $1").await?;
+                    .prepare_cached("SELECT * FROM todos WHERE namespace = $1 ORDER BY id DESC").await?;
 
                 client.query(&statement, &[&namespace]).await?
             }

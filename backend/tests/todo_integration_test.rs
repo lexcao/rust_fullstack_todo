@@ -41,7 +41,7 @@ async fn get_todos_not_empty() -> anyhow::Result<()> {
     let todos = client.get_todos(None).await?;
 
     let actual = todos.iter().collect::<Vec<&TodoResponse>>();
-    let expect = vec![&todo_1, &todo_2, &todo_3];
+    let expect = vec![&todo_3, &todo_2, &todo_1];
     assert_eq!(expect, actual);
 
     // clean data
@@ -52,6 +52,59 @@ async fn get_todos_not_empty() -> anyhow::Result<()> {
     ]).await?;
 
     Ok(())
+}
+
+#[tokio::test]
+async fn get_todos_query_status() -> anyhow::Result<()> {
+    let base_url = spawn_server();
+
+    let client = ScopeClient::default()
+        .endpoint(&base_url)
+        .namespace(&format!("{}{}", NS, "/query_status"))
+        .todo_client();
+
+    let deleted_todo = create_todo_with_status(&client, Some(TodoStatus::Deleted)).await?;
+    let archive_todo = create_todo_with_status(&client, Some(TodoStatus::Archived)).await?;
+    let done_todo = create_todo_with_status(&client, Some(TodoStatus::Done)).await?;
+    let todo_todo = create_todo_with_status(&client, Some(TodoStatus::Todo)).await?;
+
+    let expect = vec![&todo_todo, &done_todo, &archive_todo, &deleted_todo];
+    assert_todos_with_status(&client, None, expect).await?;
+    assert_todos_with_status(&client, Some(TodoStatus::Todo), vec![&todo_todo]).await?;
+    assert_todos_with_status(&client, Some(TodoStatus::Done), vec![&done_todo]).await?;
+    assert_todos_with_status(&client, Some(TodoStatus::Archived), vec![&archive_todo]).await?;
+    assert_todos_with_status(&client, Some(TodoStatus::Deleted), vec![&deleted_todo]).await?;
+
+    // clean data
+    client.clear_todos(vec![
+        todo_todo.id,
+        done_todo.id,
+        archive_todo.id,
+        deleted_todo.id,
+    ]).await?;
+
+    Ok(())
+}
+
+async fn assert_todos_with_status(client: &TodoClient, status: Option<TodoStatus>, expect: Vec<&TodoResponse>) -> anyhow::Result<()> {
+    let todos = client.get_todos(status).await?;
+    let actual = todos.iter().collect::<Vec<&TodoResponse>>();
+    assert_eq!(expect, actual);
+
+    Ok(())
+}
+
+async fn create_todo_with_status(client: &TodoClient, status: Option<TodoStatus>) -> anyhow::Result<TodoResponse> {
+    let created = client.create_todo(CreateTodoRequest {
+        content: format!("create todo with status {:?}", status),
+    }).await?;
+
+    let response = client.update_todo(created.id.clone(), UpdateTodoRequest {
+        content: None,
+        status,
+    }).await?;
+
+    Ok(response)
 }
 
 #[tokio::test]
