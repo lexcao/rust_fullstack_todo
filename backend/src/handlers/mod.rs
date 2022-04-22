@@ -2,10 +2,10 @@ use actix_web::{HttpMessage, web};
 use actix_web::dev::{ServiceRequest};
 
 pub mod todo_handler;
-pub mod hello_handler;
+pub mod ping_handler;
 
 pub fn routes(cfg: &mut web::ServiceConfig) {
-    cfg.configure(hello_handler::configure);
+    cfg.configure(ping_handler::configure);
 
     cfg.service(web::scope("/todos")
         .configure(todo_handler::configure));

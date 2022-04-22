@@ -2,8 +2,10 @@ use reqwest::Client;
 use reqwest::header::HeaderMap;
 
 mod todo_client;
+mod ping_client;
 
 pub use todo_client::TodoClient;
+pub use ping_client::PingClient;
 
 #[derive(Clone)]
 pub struct ScopeClient {
@@ -41,6 +43,10 @@ impl ScopeClient {
         let mut c = self.clone();
         c.inner = client(self.namespace.clone());
         TodoClient::from(c)
+    }
+    
+    pub fn ping_client(&self) -> PingClient {
+        PingClient::from(self.clone())
     }
 }
 

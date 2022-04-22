@@ -297,6 +297,7 @@ dependencies = [
  "env_logger",
  "log",
  "postgres-types",
+ "reqwest",
  "serde",
  "serde_json",
  "thiserror",
