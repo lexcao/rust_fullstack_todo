@@ -1,12 +1,14 @@
 use std::rc::Rc;
-use yew::prelude::*;
 use web_sys::HtmlInputElement;
-use yew_hooks::{use_async, use_async_with_options, UseAsyncOptions};
+use yew::prelude::*;
+use yew_hooks::{use_async, use_async_with_options, use_interval, UseAsyncOptions};
+
 use common::client::{ScopeClient, TodoClient};
 use common::model::{CreateTodoRequest, TodoStatus, UpdateTodoRequest};
-use crate::domain::{Todo};
-use crate::state::{TodoAction, TodoContext, TodoState};
+
+use crate::domain::Todo;
 use crate::icon;
+use crate::state::{TodoAction, TodoContext, TodoState};
 
 #[derive(Properties, PartialEq, Clone)]
 pub struct TodoControlProps {
@@ -338,12 +340,131 @@ fn add_todo(AddTodoProps { dispatcher }: &AddTodoProps) -> Html {
     }
 }
 
-
 fn todo_client() -> TodoClient {
     ScopeClient::default()
         .namespace("test")
         .endpoint("http://localhost:3000")
         .todo_client()
+}
+
+#[derive(Properties, PartialEq, Clone)]
+pub struct RemoteButtonProps {
+    enable_remote: bool,
+    on_enable_remote: Callback<bool>,
+}
+
+#[function_component(RemoteButton)]
+pub fn remote_button(RemoteButtonProps { enable_remote, on_enable_remote }: &RemoteButtonProps) -> Html {
+    let health_check = use_async(async move {
+        let client = todo_client().ping_client();
+
+        client.ping().await.map_err(|e| e.to_string())
+    });
+
+    let remote_available = match &health_check.data {
+        None => false,
+        Some(response) => response == "pong",
+    };
+
+    let retrying = {
+        let heath_check = health_check.clone();
+        let on_retry = move || { !remote_available };
+        use_retry(move || {
+            heath_check.run();
+        }, on_retry, 2)
+    };
+
+    let on_remote = {
+        let on_enable_remote = on_enable_remote.clone();
+        Callback::from(move |_: MouseEvent| {
+            if !remote_available {
+                return;
+            }
+            on_enable_remote.emit(true);
+        })
+    };
+
+    let button = "button is-rounded".to_string();
+    let remote_class = if *enable_remote {
+        "is-success"
+    } else if retrying {
+        "is-loading"
+    } else if remote_available {
+        "is-success is-light"
+    } else { "is-danger is-light" };
+
+    let remote_class = format!("{} {}", button, remote_class);
+    let remote_tooltip = if remote_available { "data is saved on remote server" } else { "remote is not available" };
+
+    html! {
+        <div class="control" data-tooltip={remote_tooltip}>
+            <button class={remote_class} onclick={on_remote} disabled={!remote_available}>
+                <span class="icon">
+                if remote_available {
+                    <icon::CloudOnline />
+                } else {
+                    <icon::CloudAlert />
+                }
+                </span>
+            </button>
+        </div>
+    }
+}
+
+fn use_retry<Callback, Condition>(callback: Callback, on_retry: Condition, times: u32) -> bool
+    where
+        Callback: Fn() + 'static,
+        Condition: Fn() -> bool + 'static,
+{
+    let interval = use_state(|| 200);
+    let interval_mut = interval.clone();
+    let retry = use_state(|| 0);
+    use_interval(move || {
+        callback();
+        if !on_retry() {
+            interval_mut.set(0);
+            return;
+        }
+        interval_mut.set(*interval_mut * 2);
+        if *retry == times {
+            interval_mut.set(0);
+        } else {
+            retry.set(*retry + 1);
+        }
+    }, *interval);
+
+    return *interval != 0;
+}
+
+#[derive(Properties, PartialEq, Clone)]
+pub struct DataSourceSwitcherProps {
+    enable_remote: bool,
+    on_enable_remote: Callback<bool>,
+}
+
+#[function_component(DataSourceSwitcher)]
+pub fn data_source_switcher(DataSourceSwitcherProps { on_enable_remote, enable_remote }: &DataSourceSwitcherProps) -> Html {
+    let on_local = {
+        let on_enable_remote = on_enable_remote.clone();
+        Callback::from(move |_: MouseEvent| {
+            on_enable_remote.emit(false);
+        })
+    };
+
+    let button = "button is-rounded".to_string();
+    let local_class = if *enable_remote { "is-light" } else { "is-info" };
+    let local_class = format!("{} {}", button, local_class);
+
+    html! {
+         <div class="field has-addons is-justify-content-center">
+            <div class="control" data-tooltip="data is saved in the browser">
+                <button class={local_class} onclick={on_local} >
+                    <span class="icon"><icon::CloudOffline /></span>
+                </button>
+            </div>
+            <RemoteButton {on_enable_remote} enable_remote={*enable_remote} />
+        </div>
+    }
 }
 
 #[function_component(App)]
@@ -352,62 +473,60 @@ pub fn app() -> Html {
     let status_tab = use_state(|| Option::<TodoStatus>::None);
 
     let context = use_state(|| TodoContext {
-        enable_remote: true,
+        enable_remote: false,
     });
 
-    let data = {
-        let state = state.clone();
+    let on_enable_remote = {
         let context = context.clone();
+        Callback::from(move |value: bool| {
+            context.set(TodoContext { enable_remote: value })
+        })
+    };
 
-        if context.enable_remote {
-            let remotes = {
-                let status_tab = status_tab.clone();
-                use_async_with_options(async move {
-                    todo_client()
-                        .get_todos(*status_tab).await
-                        .map_err(|e| e.to_string())
-                        .map(|it|
-                            it.into_iter()
-                                .map(|it| Todo {
-                                    status: it.status,
-                                    content: it.content,
-                                    id: it.id as i32,
-                                })
-                                .collect::<Vec<Todo>>()
-                        )
-                }, UseAsyncOptions { auto: false })
-            };
+    let remotes = {
+        let status_tab = status_tab.clone();
+        use_async_with_options(async move {
+            todo_client()
+                .get_todos(*status_tab).await
+                .map_err(|e| e.to_string())
+                .map(|it|
+                    it.into_iter()
+                        .map(|it| Todo {
+                            status: it.status,
+                            content: it.content,
+                            id: it.id as i32,
+                        })
+                        .collect::<Vec<Todo>>()
+                )
+        }, UseAsyncOptions { auto: false })
+    };
 
-            {
-                let remotes = remotes.clone();
-                let state = state.clone();
-                let refresh = state.refresh;
-                use_effect_with_deps(
-                    move |_| {
-                        remotes.run();
-                        || ()
-                    },
-                    refresh,
-                );
-            }
+    {
+        let remotes = remotes.clone();
+        let state = state.clone();
+        let refresh = state.refresh;
+        let enable_remote = context.clone().enable_remote;
+        use_effect_with_deps(
+            move |_| {
+                if enable_remote {
+                    remotes.run();
+                } else {
+                    state.save_to_local();
+                }
+                || ()
+            },
+            (enable_remote, refresh),
+        );
+    }
 
+    let data = {
+        let enable_remote = context.clone().enable_remote;
+        if enable_remote {
             match remotes.data.clone() {
                 Some(data) => data,
                 None => vec![],
             }
         } else {
-            {
-                let state = state.clone();
-                let refresh = state.refresh;
-                use_effect_with_deps(
-                    move |_| {
-                        state.save_to_local();
-                        || ()
-                    },
-                    refresh,
-                );
-            }
-
             state.locals
                 .iter()
                 .cloned()
@@ -442,22 +561,35 @@ pub fn app() -> Html {
     html! {
         <ContextProvider<TodoContext> context={(*context).clone()}>
             <section class="hero is-link">
+                <div class="hero-head">
+                    <div class="container p-4 is-max-desktop">
+                        <div class="is-justify-content-flex-end is-flex">
+                            <a target="_black" href="https://github.com/lexcao">
+                                <span class="icon"><icon::GitHub/></span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
                 <div class="hero-body">
-                    <Header />
+                    <Header/>
                 </div>
                 <div class="hero-foot">
                     <Tabs on_select={on_tab_select} selected={*status_tab} />
                 </div>
             </section>
             <section class="container p-4 is-max-desktop">
-                <AddTodo dispatcher={state.dispatcher()} />
+                <div class="is-flex is-justify-content-space-between">
+                    <DataSourceSwitcher {on_enable_remote}
+                            enable_remote={context.enable_remote}/>
+                    <div class="is-flex-grow-1 pl-4">
+                        <AddTodo dispatcher={state.dispatcher()} />
+                    </div>
+                </div>
                 if show_clear_deleted_button {
                     <ClearDeletedButton dispatcher={state.dispatcher()} />
                 }
                 <div class="container" style="min-height:calc(100vh - 200px);overflow:visible">
-                /*if remotes.loading {
-                    <p class="has-text-centered heading">{ "--- Loading ---" }</p>
-                } else*/ if empty_todos {
+                if empty_todos {
                     <p class="has-text-centered heading">{ "--- Empty ---" }</p>
                 } else {
                     { todo_elements }
@@ -590,13 +722,17 @@ pub fn tabs(TabsProps { on_select, selected }: &TabsProps) -> Html {
     }
 }
 
+#[derive(Properties, PartialEq, Clone)]
+pub struct HeaderProps {
+    #[prop_or_default]
+    pub children: Children,
+}
+
 #[function_component(Header)]
-pub fn header() -> Html {
+pub fn header(props: &HeaderProps) -> Html {
     html! {
         <div class="container has-text-centered">
-            <a target="_black" href="https://github.com/lexcao">
-                <span class="icon"><icon::GitHub/></span>
-            </a>
+            { for props.children.iter() }
             <p class="title">{ "Todos" }</p>
             <p class="subtitle">
               { "🦀️ Rust Fullstack Application"}

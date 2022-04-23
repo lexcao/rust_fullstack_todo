@@ -1,4 +1,4 @@
-use reqwest::Client;
+use reqwest::{Client, ClientBuilder};
 use reqwest::header::HeaderMap;
 
 mod todo_client;
@@ -11,7 +11,7 @@ pub use ping_client::PingClient;
 pub struct ScopeClient {
     endpoint: String,
     namespace: Option<String>,
-    pub inner: reqwest::Client,
+    inner: reqwest::Client,
 }
 
 impl Default for ScopeClient {
@@ -20,6 +20,16 @@ impl Default for ScopeClient {
             endpoint: "".to_string(),
             namespace: None,
             inner: Client::default(),
+        }
+    }
+}
+
+impl From<ClientBuilder> for ScopeClient {
+    fn from(c: ClientBuilder) -> Self {
+        let default = ScopeClient::default();
+        Self {
+            inner: c.build().unwrap(),
+            ..default
         }
     }
 }
@@ -44,7 +54,7 @@ impl ScopeClient {
         c.inner = client(self.namespace.clone());
         TodoClient::from(c)
     }
-    
+
     pub fn ping_client(&self) -> PingClient {
         PingClient::from(self.clone())
     }
