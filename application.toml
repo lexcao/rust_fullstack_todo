@@ -1,0 +1,9 @@
+[server]
+port = 3000
+
+[db]
+host = "localhost"
+port = 5432
+user = "user"
+password = "password"
+dbname = "rust_fullstack_todo"

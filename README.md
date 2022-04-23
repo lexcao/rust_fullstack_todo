@@ -126,8 +126,6 @@ src/
 - lib.rs
 - handlers/
     - todo_handler.rs
-- applications/
-    - todo_application_service.rs
 - domains/
     - todo_domain.rs
 - infra/

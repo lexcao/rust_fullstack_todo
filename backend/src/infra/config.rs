@@ -1,5 +1,6 @@
 use std::net::TcpListener;
-use config::{ConfigError, File, FileFormat};
+
+use config::{ConfigError, Environment, File, FileFormat};
 use serde::Deserialize;
 
 #[derive(Deserialize, Debug)]
@@ -23,10 +24,11 @@ impl Config {
 pub fn get() -> Result<Config, ConfigError> {
     config::Config::builder()
         .add_source(File::new("application", FileFormat::Toml))
+        .add_source(Environment::with_prefix("APP").separator("_"))
         .build()?
         .try_deserialize()
 }
 
 pub fn must_get() -> Config {
-    get().expect("Failed to get config from application.toml")
+    get().expect("Failed to get config")
 }

@@ -11,7 +11,6 @@ use crate::domains::todo_domain::{TodoDomain, TodoDomainTrait};
 use crate::handlers::todo_handler;
 
 pub mod handlers;
-pub mod applications;
 pub mod domains;
 pub mod infra;
 
