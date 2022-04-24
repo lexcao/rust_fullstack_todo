@@ -6,12 +6,12 @@ use common::model::TodoStatus;
 
 use crate::components::*;
 use crate::domain::Todo;
-use crate::icon;
+use crate::{icon, namespace};
 use crate::state::{TodoAction, TodoContext, TodoState};
 
 pub fn todo_client() -> TodoClient {
     ScopeClient::default()
-        .namespace("test")
+        .namespace(&namespace::get())
         .endpoint(
             option_env!("APP_REMOTE_ENDPOINT")
                 .unwrap_or_else(|| "http://localhost:3000")

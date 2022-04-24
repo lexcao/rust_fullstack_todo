@@ -4,6 +4,7 @@ mod domain;
 mod icon;
 mod components;
 mod hooks;
+mod namespace;
 
 use app::*;
 
