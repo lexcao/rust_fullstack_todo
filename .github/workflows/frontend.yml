@@ -13,6 +13,8 @@ jobs:
   build:
 
     runs-on: ubuntu-latest
+    env:
+      APP_REMOTE_ENDPOINT: https://rust-fullstack-todo.up.railway.app
 
     steps:
     - uses: actions/checkout@v3
