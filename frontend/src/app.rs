@@ -116,7 +116,7 @@ pub fn app() -> Html {
                 <div class="hero-head">
                     <div class="container p-4 is-max-desktop">
                         <div class="is-justify-content-flex-end is-flex">
-                            <a target="_black" href="https://github.com/lexcao">
+                            <a target="_black" href="https://github.com/lexcao/rust_fullstack_todo">
                                 <span class="icon"><icon::GitHub/></span>
                             </a>
                         </div>
@@ -179,8 +179,8 @@ pub fn footer() -> Html {
                 <a target="_black" href="https://lexcao.io">{ "Lex Cao" }</a>
             </p>
             <p class="block">
-                {" Source code is available "}
-                <a target="_black" href="https://github.com/lexcao">{ "here" }</a>
+                {" Source code is available on "}
+                <a target="_black" href="https://github.com/lexcao/rust_fullstack_todo">{ "GitHub" }</a>
             </p>
         </div>
     }
