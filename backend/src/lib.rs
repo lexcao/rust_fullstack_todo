@@ -23,10 +23,8 @@ pub fn start_server(listener: TcpListener, db_pool: Pool) -> Server {
         let todo_domain_trait = Arc::new(todo_domain.clone())
             as Arc<dyn TodoDomainTrait>;
 
-        let cors = Cors::permissive()
-            .allowed_origin("http://localhost:8080")
-            .allowed_origin("https://todos.lexcao.io")
-            .allowed_origin("https://rust-fullstack-todo.vercel.app");
+        // TODO fix cors
+        let cors = Cors::permissive();
 
         App::new()
             .wrap_fn(|req, srv| {
