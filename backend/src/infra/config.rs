@@ -16,7 +16,7 @@ pub struct Config {
 
 impl Config {
     pub fn address(&self) -> TcpListener {
-        TcpListener::bind(format!("127.0.0.1:{}", self.server.port))
+        TcpListener::bind(format!("0.0.0.0:{}", self.server.port))
             .expect("Failed to bind port")
     }
 }
