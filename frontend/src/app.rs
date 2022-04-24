@@ -1,16 +1,21 @@
-use yew::{ContextProvider, function_component, Callback, Html, use_reducer, use_state, use_effect_with_deps, html};
+use yew::{Callback, ContextProvider, function_component, Html, html, use_effect_with_deps, use_reducer, use_state};
 use yew_hooks::{use_async_with_options, UseAsyncOptions};
+
 use common::client::{ScopeClient, TodoClient};
 use common::model::TodoStatus;
-use crate::domain::Todo;
-use crate::state::{TodoAction, TodoContext, TodoState};
+
 use crate::components::*;
+use crate::domain::Todo;
 use crate::icon;
+use crate::state::{TodoAction, TodoContext, TodoState};
 
 pub fn todo_client() -> TodoClient {
     ScopeClient::default()
         .namespace("test")
-        .endpoint("http://localhost:3000")
+        .endpoint(
+            option_env!("APP_REMOTE_ENDPOINT")
+                .unwrap_or_else(|| "http://localhost:3000")
+        )
         .todo_client()
 }
 
