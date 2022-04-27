@@ -1,19 +1,21 @@
+use std::fmt::{Debug, Display, Formatter};
+
+use actix_web::web;
+
+pub use clear_todos::*;
+use common::model::TodoResponse;
+pub use create_todo::*;
+pub use get_todo_by_id::*;
+pub use get_todos::*;
+pub use update_todo::*;
+
+use crate::domains::todo_domain::Todo;
+
 mod create_todo;
 mod get_todos;
 mod update_todo;
 mod clear_todos;
 mod get_todo_by_id;
-
-use std::fmt::{Debug, Display, Formatter};
-pub use get_todos::*;
-pub use create_todo::*;
-pub use update_todo::*;
-pub use clear_todos::*;
-pub use get_todo_by_id::*;
-
-use actix_web::web;
-use common::model::TodoResponse;
-use crate::domains::todo_domain::Todo;
 
 pub fn configure(cfg: &mut web::ServiceConfig) {
     cfg.route("", web::get().to(get_todos));

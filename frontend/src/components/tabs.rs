@@ -12,11 +12,11 @@ pub struct TabsProps {
 #[function_component(Tabs)]
 pub fn tabs(TabsProps { on_select, selected }: &TabsProps) -> Html {
     let status_tabs = [
-        (Some(TodoStatus::Todo), html! { <icon::Edit /> }),
-        (Some(TodoStatus::Done), html! { <icon::Check /> }),
-        (None, html! { <icon::CheckAll /> }),
-        (Some(TodoStatus::Archived), html! { <icon::Archive />}),
-        (Some(TodoStatus::Deleted), html! { <icon::Delete />}),
+        (Some(TodoStatus::Todo), html! { <icons::Edit /> }),
+        (Some(TodoStatus::Done), html! { <icons::Check /> }),
+        (None, html! { <icons::CheckAll /> }),
+        (Some(TodoStatus::Archived), html! { <icons::Archive />}),
+        (Some(TodoStatus::Deleted), html! { <icons::Delete />}),
     ].iter().map(|(status, icon): &(Option<TodoStatus>, Html)| {
         let active = if status == selected { "is-active" } else { "" };
         let status_name = match status {

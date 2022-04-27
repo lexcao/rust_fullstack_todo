@@ -1,8 +1,10 @@
 use std::rc::Rc;
+
+use chrono::Utc;
 use gloo::storage::{LocalStorage, Storage};
 use yew::Reducible;
-use common::model::{TodoStatus, UpdateTodoRequest};
-use crate::domain::{create_todo, Todo};
+
+use common::model::{TodoResponse, TodoStatus, UpdateTodoRequest};
 
 #[derive(Clone)]
 pub enum TodoAction {
@@ -14,7 +16,7 @@ pub enum TodoAction {
 
 #[derive(PartialEq, Clone)]
 pub struct TodoState {
-    pub locals: Vec<Todo>,
+    pub locals: Vec<TodoResponse>,
     pub refresh: bool,
 }
 
@@ -57,12 +59,14 @@ impl Reducible for TodoState {
                 let mut locals = self.locals.clone();
                 if let Some(index) = locals.iter().position(|it| it.id == id) {
                     if let Some(content) = update.content {
-                        locals[index].content = content
+                        locals[index].content = content;
                     }
                     if let Some(status) = update.status {
-                        locals[index].status = status
+                        locals[index].status = status;
                     }
+                    locals[index].updated_at = Utc::now();
                 }
+
                 locals
             }
             TodoAction::ClearDeleted => {
@@ -78,5 +82,16 @@ impl Reducible for TodoState {
             locals: next,
             refresh: !self.refresh,
         })
+    }
+}
+
+fn create_todo(id: &usize, content: &str) -> TodoResponse {
+    TodoResponse {
+        namespace: "local".to_string(),
+        id: *id as i32,
+        status: TodoStatus::Todo,
+        content: content.to_string(),
+        created_at: Utc::now(),
+        updated_at: Utc::now(),
     }
 }

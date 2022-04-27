@@ -2,11 +2,10 @@ use yew::{Callback, ContextProvider, function_component, Html, html, use_effect_
 use yew_hooks::{use_async_with_options, UseAsyncOptions};
 
 use common::client::{ScopeClient, TodoClient};
-use common::model::TodoStatus;
+use common::model::{TodoResponse, TodoStatus};
 
-use crate::components::*;
-use crate::domain::Todo;
 use crate::{icons, namespace};
+use crate::components::*;
 use crate::states::{TodoAction, TodoContext, TodoState};
 
 pub fn todo_client() -> TodoClient {
@@ -41,15 +40,6 @@ pub fn app() -> Html {
             todo_client()
                 .get_todos(*status_tab).await
                 .map_err(|e| e.to_string())
-                .map(|it|
-                    it.into_iter()
-                        .map(|it| Todo {
-                            status: it.status,
-                            content: it.content,
-                            id: it.id as i32,
-                        })
-                        .collect::<Vec<Todo>>()
-                )
         }, UseAsyncOptions { auto: false })
     };
 
@@ -86,7 +76,7 @@ pub fn app() -> Html {
                     status_tab.is_none() ||
                         (status_tab.is_some() && todo.status == status_tab.unwrap())
                 })
-                .collect::<Vec<Todo>>()
+                .collect::<Vec<TodoResponse>>()
         }
     };
 
@@ -117,7 +107,7 @@ pub fn app() -> Html {
                     <div class="container p-4 is-max-desktop">
                         <div class="is-justify-content-flex-end is-flex">
                             <a target="_black" href="https://github.com/lexcao/rust_fullstack_todo">
-                                <span class="icon"><icon::GitHub/></span>
+                                <span class="icon"><icons::GitHub/></span>
                             </a>
                         </div>
                     </div>

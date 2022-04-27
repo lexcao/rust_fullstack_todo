@@ -5,7 +5,7 @@ use yew_hooks::use_async;
 use common::model::{TodoStatus, UpdateTodoRequest};
 
 use crate::states::{TodoAction, TodoContext, TodoState};
-use crate::todo_client;
+use crate::app::todo_client;
 use crate::icons;
 
 #[derive(Properties, PartialEq, Clone)]
@@ -81,49 +81,49 @@ pub fn todo_control(
             on_click: on_save_editing,
             tooltip: "Save".to_string(),
             color: "has-text-gray".to_string(),
-            icon: html! { <icon::EditSave /> },
+            icon: html! { <icons::EditSave /> },
         },
         IconButton {
             visible: editing,
             on_click: on_edit.clone(),
             tooltip: "Cancel".to_string(),
             color: "has-text-gray".to_string(),
-            icon: html! { <icon::EditCancel /> },
+            icon: html! { <icons::EditCancel /> },
         },
         IconButton {
             visible: !editing && show_todo && !checked,
             on_click: update_status(TodoStatus::Done),
             tooltip: "Done".to_string(),
             color: "has-text-success".to_string(),
-            icon: html! { <icon::Check /> },
+            icon: html! { <icons::Check /> },
         },
         IconButton {
             visible: !editing && show_todo && checked,
             on_click: update_status(TodoStatus::Todo),
             tooltip: "Undo".to_string(),
             color: "has-text-info".to_string(),
-            icon: html! { <icon::Undo /> },
+            icon: html! { <icons::Undo /> },
         },
         IconButton {
             visible: !editing && show_todo && !checked,
             on_click: on_edit.clone(),
             tooltip: "Edit".to_string(),
             color: "has-text-gray".to_string(),
-            icon: html! { <icon::Edit /> },
+            icon: html! { <icons::Edit /> },
         },
         IconButton {
             visible: !editing && show_todo,
             on_click: update_status(TodoStatus::Archived),
             tooltip: "Archive".to_string(),
             color: "has-text-gray".to_string(),
-            icon: html! { <icon::Archive /> },
+            icon: html! { <icons::Archive /> },
         },
         IconButton {
             visible: !editing && status == TodoStatus::Archived,
             on_click: update_status(TodoStatus::Deleted),
             tooltip: "Delete".to_string(),
             color: "has-text-dark".to_string(),
-            icon: html! { <icon::Delete /> },
+            icon: html! { <icons::Delete /> },
         },
     ].into_iter().map(|it| {
         html! {

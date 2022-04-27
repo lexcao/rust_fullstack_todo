@@ -1,12 +1,15 @@
 use std::str::FromStr;
 use std::time::SystemTime;
+use anyhow::Result;
+use chrono::DateTime;
 use deadpool_postgres::Pool;
+use postgres_types::{FromSql, ToSql};
 use tokio_pg_mapper::FromTokioPostgresRow;
 use tokio_pg_mapper_derive::PostgresMapper;
-use postgres_types::{FromSql, ToSql};
-use crate::domains::todo_domain::{Todo, TodoID};
-use anyhow::Result;
+
 use common::model::TodoStatus;
+
+use crate::domains::todo_domain::{Todo, TodoID};
 use crate::infra::db::RecordNotFound;
 
 #[derive(PostgresMapper, Debug, FromSql, ToSql)]
@@ -143,7 +146,7 @@ impl From<Todo> for TodoEntity {
             id: todo.id.1,
             content: todo.content,
             status: todo.status.to_string(),
-            created_at: todo.created_at,
+            created_at: SystemTime::from(todo.created_at),
             updated_at: SystemTime::now(),
         }
     }
@@ -155,8 +158,8 @@ impl From<TodoEntity> for Todo {
             id: (todo.namespace, todo.id),
             content: todo.content,
             status: TodoStatus::from_str(&todo.status).unwrap(),
-            created_at: todo.created_at,
-            updated_at: todo.updated_at,
+            created_at: DateTime::from(todo.created_at),
+            updated_at: DateTime::from(todo.updated_at),
         }
     }
 }
@@ -164,10 +167,13 @@ impl From<TodoEntity> for Todo {
 #[cfg(test)]
 mod tests {
     use deadpool_postgres::Pool;
+
     use common::model::TodoStatus;
+
     use crate::domains::todo_domain::Todo;
-    use crate::infra::{db, config};
+    use crate::infra::{config, db};
     use crate::infra::db::RecordNotFound;
+
     use super::TodoRepository;
 
     fn test_db() -> Pool {

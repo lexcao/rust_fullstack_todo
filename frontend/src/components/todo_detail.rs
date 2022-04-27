@@ -1,16 +1,18 @@
 use std::rc::Rc;
+
 use web_sys::{HtmlInputElement, KeyboardEvent, MouseEvent};
-use yew::{Callback, function_component, Properties, Html, html, use_context, use_node_ref, use_state, UseReducerDispatcher};
+use yew::{Callback, function_component, Html, html, Properties, use_context, use_node_ref, use_state, UseReducerDispatcher};
 use yew_hooks::use_async;
-use common::model::{TodoStatus, UpdateTodoRequest};
-use crate::domain::Todo;
-use crate::states::{TodoAction, TodoContext, TodoState};
-use crate::todo_client;
+
+use common::model::{TodoResponse, TodoStatus, UpdateTodoRequest};
+use crate::app::todo_client;
+
 use crate::components::todo_control::*;
+use crate::states::{TodoAction, TodoContext, TodoState};
 
 #[derive(Properties, PartialEq, Clone)]
 pub struct TodoDetailsProps {
-    pub todo: Todo,
+    pub todo: TodoResponse,
     pub dispatcher: UseReducerDispatcher<TodoState>,
 }
 

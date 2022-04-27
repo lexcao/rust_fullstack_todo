@@ -1,7 +1,7 @@
 use std::fmt::{Display, Formatter};
 use std::str::FromStr;
-use std::time::SystemTime;
 use anyhow::{bail, Error};
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize)]
@@ -55,6 +55,6 @@ pub struct TodoResponse {
     pub id: i32,
     pub content: String,
     pub status: TodoStatus,
-    pub created_at: SystemTime,
-    pub updated_at: SystemTime,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }

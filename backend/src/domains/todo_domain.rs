@@ -1,17 +1,19 @@
-use std::time::SystemTime;
-use crate::domains::todo_repository::TodoRepository;
 use anyhow::Result;
-use thiserror::Error;
 use async_trait::async_trait;
+use chrono::{DateTime, Utc};
+use thiserror::Error;
+
 use common::model::TodoStatus;
+
+use crate::domains::todo_repository::TodoRepository;
 
 #[derive(Debug)]
 pub struct Todo {
     pub id: TodoID,
     pub content: String,
     pub status: TodoStatus,
-    pub created_at: SystemTime,
-    pub updated_at: SystemTime,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
 }
 
 pub type TodoID = (String, i32);
@@ -37,8 +39,8 @@ impl Default for Todo {
             id: ("default".to_string(), 0),
             content: "".to_string(),
             status: TodoStatus::Todo,
-            created_at: SystemTime::now(),
-            updated_at: SystemTime::now(),
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
         }
     }
 }

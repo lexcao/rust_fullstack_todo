@@ -3,7 +3,7 @@ use yew::{Callback, function_component, Html, html, Properties};
 use yew_hooks::use_async;
 
 use crate::icons;
-use crate::todo_client;
+use crate::app::todo_client;
 use crate::hooks::use_retry;
 
 #[derive(Properties, PartialEq, Clone)]
@@ -60,9 +60,9 @@ pub fn remote_button(RemoteButtonProps { enable_remote, on_enable_remote }: &Rem
             <button class={remote_class} onclick={on_remote} disabled={!remote_available}>
                 <span class="icon">
                 if remote_available {
-                    <icon::CloudOnline />
+                    <icons::CloudOnline />
                 } else {
-                    <icon::CloudAlert />
+                    <icons::CloudAlert />
                 }
                 </span>
             </button>
@@ -94,7 +94,7 @@ pub fn data_source_switcher(DataSourceSwitcherProps { on_enable_remote, enable_r
          <div class="field has-addons is-justify-content-center">
             <div class="control" data-tooltip="data is saved in the browser">
                 <button class={local_class} onclick={on_local} >
-                    <span class="icon"><icon::CloudOffline /></span>
+                    <span class="icon"><icons::CloudOffline /></span>
                 </button>
             </div>
             <RemoteButton {on_enable_remote} enable_remote={*enable_remote} />

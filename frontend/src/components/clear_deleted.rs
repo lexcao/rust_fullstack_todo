@@ -2,7 +2,7 @@ use yew::{Html, Properties, function_component, use_context, use_state, UseReduc
 use yew_hooks::use_async;
 use common::model::TodoStatus;
 use crate::states::{TodoAction, TodoContext, TodoState};
-use crate::todo_client;
+use crate::app::todo_client;
 
 #[derive(Properties, PartialEq, Clone)]
 pub struct ClearDeletedButtonProps {
