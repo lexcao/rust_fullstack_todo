@@ -1,177 +1,60 @@
-# Rust Fullstack Todo Applications
+# A Rust Fullstack Todo Application
 
-You can try [here](https://todos.lexcao.io);
+You can try it [here](https://todos.lexcao.io), and I also write a blog about it.
 
-# Get Started
+* development by TDD
+* all Rust code in frontend and backend with share code
 
-Learn Rust by doing.
+# Getting Started
 
-- to do application
-- TDD
-- fullstack (all in rust)
+### Requirement
 
-# Stack
+* [cargo](https://doc.rust-lang.org/stable/cargo/)
+* [trunk](https://trunkrs.dev/)
 
-web
+### Start backend
 
-- actix-web
+```shell
+# 1. setup local postgres in docker
+$ cd backend && docker-compose up -d
 
-web-assembly
+# 2. start backend
+$ cd backend && cargo run 
 
-- yew
-
-deployment
-
-- postgres
-- supabase
-- heroku
-
-# Design
-
-## Entity
-
-```postgresql
-CREATE TABLE todos
-(
-    namespace  VARCHAR(36) NOT NULL,
-    id         SERIAL      NOT NULL,
-    content    TEXT        NOT NULL,
-    status     VARCHAR(32) NOT NULl,
-    created_at TIMESTAMP   NOT NULL,
-    updated_at TIMESTAMP   NOT NULL,
-    PRIMARY KEY (namespace, id)
-);
+# 3. start backend (another way)
+$ cargo run --bin backend
 ```
 
-## API Endpoints
+### Start frontend
 
-### Common Header
-
-short for `todo namespace`
-default to: default
-
-```text
-t-NS: {NS}
+```shell
+$ cd frontend && trunk serve
 ```
 
-### GET /todos
+# How it built
 
-get a list of todos
+Thanks for the open source.
 
-query
+### Backend
 
-```
-?status=todo
-```
+* rust: [book](https://doc.rust-lang.org/book/)
+* web: [actix-web](https://github.com/actix/actix-web)
+* async: [tokio](https://github.com/tokio-rs/tokio)
+* db: [postgres](https://github.com/sfackler/rust-postgres)
+* more to [see](./backend/Cargo.toml)
 
-body
+### Frontend
 
-```json
-[
-  {
-    "id": 1,
-    "namespace": "default",
-    "content": "first thing",
-    "status": "todo",
-    "create_at": 1647151812778
-  }
-]
-```
+* wasm: [book](https://rustwasm.github.io/docs/book/)
+* web: [yew](https://github.com/yewstack/yew)
+* hooks: [yew-hooks](https://github.com/jetli/yew-hooks)
+* http: [reqwest](https://github.com/seanmonstar/reqwest)
+* more to [see](./frontend/Cargo.toml)
 
-### POST /todos
+### [Deployment](Deployment.md)
 
-create a todo
+* frontend: [Vercel](https://vercel.com/)
+* backend: [Railway](https://railway.app/)
+* postgres: [Supabase](https://supabase.com/)
 
-body
-
-```json
-{
-  "content": "second thing"
-}
-```
-
-### PATCH /todos/{id}
-
-update content of a todo
-
-```json
-{
-  "content": "updated thing"
-}
-```
-
-### PATCH /todos/{id}/{status}
-
-available status:
-
-- todo
-- done
-- archive
-
-update status of a todo
-
-[no body]
-
-### DELETE /todos/{id}
-
-delete a **archive** todo
-
-## Status Transform
-
-![img.png](doc/status_transform.png)
-
-# Backend
-
-## Mods
-
-```text
-src/
-- main.rs
-- lib.rs
-- handlers/
-    - todo_handler.rs
-- domains/
-    - todo_domain.rs
-- infra/
-    - utils.rs
-tests/
-```
-
-unit test e2e test integration test
-
-# Ideas
-
-* CRUD derive
-* REST Repository
-
-# Road map
-
-* [x] business error design
-    * [x] repo error
-    * [] service error
-    * [] api error
-* [] domain service mock repo test
-* [] domain service status machine
-* [] application service mock domain test
-* [] handler hooks into application
-* [] handler mock application test
-* [] api error design and handling
-* [] e2e test
-* [] repo `check` like test (data driven test)
-* [] more docs
-* [] more tests
-* [] abstraction Repository
-* [] abstraction CRUD
-
-* [x] design
-* [x] ui + tailwindCSS
-
-* [x] backend: add field to identify each client
-* [] frontend: split components to files
-* [] frontend: integration with backend
-* [] deploy: backend to heroku
-    * [] backend: add api for heath check
-    * [] frontend: add switch to backend
-* [] deploy: frontend
-
-* [] blog: write tutorials
+# [Design](Design.md)

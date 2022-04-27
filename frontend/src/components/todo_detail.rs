@@ -4,7 +4,7 @@ use yew::{Callback, function_component, Properties, Html, html, use_context, use
 use yew_hooks::use_async;
 use common::model::{TodoStatus, UpdateTodoRequest};
 use crate::domain::Todo;
-use crate::state::{TodoAction, TodoContext, TodoState};
+use crate::states::{TodoAction, TodoContext, TodoState};
 use crate::todo_client;
 use crate::components::todo_control::*;
 

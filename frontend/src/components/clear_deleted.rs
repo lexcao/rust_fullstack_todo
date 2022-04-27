@@ -1,7 +1,7 @@
 use yew::{Html, Properties, function_component, use_context, use_state, UseReducerDispatcher, html, Callback};
 use yew_hooks::use_async;
 use common::model::TodoStatus;
-use crate::state::{TodoAction, TodoContext, TodoState};
+use crate::states::{TodoAction, TodoContext, TodoState};
 use crate::todo_client;
 
 #[derive(Properties, PartialEq, Clone)]

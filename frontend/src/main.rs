@@ -1,7 +1,7 @@
 mod app;
-mod state;
+mod states;
 mod domain;
-mod icon;
+mod icons;
 mod components;
 mod hooks;
 mod namespace;

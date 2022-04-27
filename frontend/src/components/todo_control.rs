@@ -4,9 +4,9 @@ use yew_hooks::use_async;
 
 use common::model::{TodoStatus, UpdateTodoRequest};
 
-use crate::state::{TodoAction, TodoContext, TodoState};
+use crate::states::{TodoAction, TodoContext, TodoState};
 use crate::todo_client;
-use crate::icon;
+use crate::icons;
 
 #[derive(Properties, PartialEq, Clone)]
 pub struct TodoControlProps {

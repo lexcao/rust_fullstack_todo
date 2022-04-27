@@ -1,7 +1,7 @@
 use yew::{Callback, function_component, Html, html, Properties};
 
 use common::model::TodoStatus;
-use crate::icon;
+use crate::icons;
 
 #[derive(Properties, PartialEq, Clone)]
 pub struct TabsProps {

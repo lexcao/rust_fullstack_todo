@@ -2,7 +2,7 @@ use web_sys::MouseEvent;
 use yew::{Callback, function_component, Html, html, Properties};
 use yew_hooks::use_async;
 
-use crate::icon;
+use crate::icons;
 use crate::todo_client;
 use crate::hooks::use_retry;
 

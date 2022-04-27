@@ -6,7 +6,7 @@ use yew_hooks::{use_async_with_options, UseAsyncOptions};
 
 use common::model::CreateTodoRequest;
 
-use crate::state::{TodoAction, TodoContext, TodoState};
+use crate::states::{TodoAction, TodoContext, TodoState};
 use crate::todo_client;
 
 #[derive(Properties, PartialEq, Clone)]

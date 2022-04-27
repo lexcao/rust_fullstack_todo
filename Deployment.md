@@ -31,4 +31,4 @@ base binary: 3.8MB (profile=true)
 | alpine  | 18.8MB |
 | scratch | 13.3MB |
 
-https://stackdiary.com/free-hosting-for-developers/
+https://kerkour.com/rust-small-docker-image

@@ -6,8 +6,8 @@ use common::model::TodoStatus;
 
 use crate::components::*;
 use crate::domain::Todo;
-use crate::{icon, namespace};
-use crate::state::{TodoAction, TodoContext, TodoState};
+use crate::{icons, namespace};
+use crate::states::{TodoAction, TodoContext, TodoState};
 
 pub fn todo_client() -> TodoClient {
     ScopeClient::default()
