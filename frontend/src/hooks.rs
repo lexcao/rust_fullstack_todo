@@ -1,6 +1,7 @@
-use yew::use_state;
+use yew::{hook, use_state};
 use yew_hooks::use_interval;
 
+#[hook]
 pub fn use_retry<Callback, Condition>(callback: Callback, on_retry: Condition, times: u32) -> bool
     where
         Callback: Fn() + 'static,

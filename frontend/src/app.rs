@@ -1,4 +1,4 @@
-use yew::{Callback, ContextProvider, function_component, Html, html, use_effect_with_deps, use_reducer, use_state};
+use yew::{Callback, ContextProvider, function_component, Html, html, use_effect_with, use_reducer, use_state};
 use yew_hooks::{use_async_with_options, UseAsyncOptions};
 
 use common::client::{ScopeClient, TodoClient};
@@ -48,26 +48,20 @@ pub fn app() -> Html {
         let state = state.clone();
         let refresh = state.refresh;
         let enable_remote = context.clone().enable_remote;
-        use_effect_with_deps(
-            move |_| {
-                if enable_remote {
-                    remotes.run();
-                } else {
-                    state.save_to_local();
-                }
-                || ()
-            },
-            (enable_remote, refresh),
-        );
+        use_effect_with((enable_remote, refresh), move |_| {
+            if enable_remote {
+                remotes.run();
+            } else {
+                state.save_to_local();
+            }
+            || ()
+        });
     }
 
     let data = {
         let enable_remote = context.clone().enable_remote;
         if enable_remote {
-            match remotes.data.clone() {
-                Some(data) => data,
-                None => vec![],
-            }
+            remotes.data.clone().unwrap_or_default()
         } else {
             state.locals
                 .iter()

@@ -3,7 +3,6 @@ version: "3"
 services:
   db:
     image: postgres
-    restart: always
     environment:
       - POSTGRES_DB=rust_fullstack_todo
       - POSTGRES_USER=user

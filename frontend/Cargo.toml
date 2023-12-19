@@ -1,21 +1,21 @@
 [package]
 name = "frontend"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 license = "MIT"
 
 [dependencies]
-gloo = "0.6"
-yew = "0.19.3"
-yew-hooks = "0.1.53"
-serde = { version = "1.0.136", features = ["derive"] }
+gloo = "0.11"
+yew = "0.21"
+yew-hooks = "0.3"
+serde = { version = "1", features = ["derive"] }
 common = { path = "../common" }
-wasm-bindgen-futures = "0.4.30"
-reqwest = { version = "0.11.10", features = ["rustls-tls"] }
+wasm-bindgen-futures = "0.4"
+reqwest = { version = "0.11", features = ["rustls-tls"] }
 chrono = { version = "0.4", features = ["serde", "wasmbind"] }
 
 [dependencies.uuid]
-version = "1.0.0"
+version = "1"
 features = [
     "v4",
     "js",

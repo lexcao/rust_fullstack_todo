@@ -6,5 +6,5 @@ mod hooks;
 mod namespace;
 
 fn main() {
-    yew::start_app::<app::App>();
+    yew::Renderer::<app::App>::new().render();
 }

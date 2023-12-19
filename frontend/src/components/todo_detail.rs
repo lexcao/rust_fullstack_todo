@@ -1,7 +1,7 @@
 use std::rc::Rc;
 
 use web_sys::{HtmlInputElement, KeyboardEvent, MouseEvent};
-use yew::{Callback, function_component, Html, html, Properties, use_context, use_node_ref, use_state, UseReducerDispatcher};
+use yew::{Callback, function_component, Html, html, Properties, ToHtml, use_context, use_node_ref, use_state, UseReducerDispatcher};
 use yew_hooks::use_async;
 
 use common::model::{TodoResponse, TodoStatus, UpdateTodoRequest};
@@ -14,6 +14,14 @@ use crate::states::{TodoAction, TodoContext, TodoState};
 pub struct TodoDetailsProps {
     pub todo: TodoResponse,
     pub dispatcher: UseReducerDispatcher<TodoState>,
+}
+
+struct TodoStatusHtml(TodoStatus);
+
+impl ToHtml for TodoStatusHtml {
+    fn to_html(&self) -> Html {
+        html! {self.0}
+    }
 }
 
 #[function_component(TodoDetails)]
@@ -96,7 +104,7 @@ pub fn todo_details(TodoDetailsProps { todo, dispatcher }: &TodoDetailsProps) ->
     html! {
         <div class="media is-align-items-center">
             <div class="media-left">
-                <span class={format!("is-light is-rounded is-normal tag {}", status_tag_color)}>{ todo.status }</span>
+                <span class={format!("is-light is-rounded is-normal tag {}", status_tag_color)}>{ TodoStatusHtml(todo.status) }</span>
             </div>
             <div class="media-content">
                 <div class="control">
@@ -122,4 +130,3 @@ pub fn todo_details(TodoDetailsProps { todo, dispatcher }: &TodoDetailsProps) ->
         </div>
     }
 }
-

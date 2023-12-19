@@ -27,7 +27,7 @@ impl Display for TodoStatus {
 impl FromStr for TodoStatus {
     type Err = Error;
 
-    fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
         match s {
             "Todo" => Ok(TodoStatus::Todo),
             "Done" => Ok(TodoStatus::Done),
