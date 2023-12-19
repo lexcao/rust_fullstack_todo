@@ -1,4 +1,7 @@
 use common::client::ScopeClient;
+
+use common::client::ScopeClient;
+
 use crate::helper::spawn_server;
 
 mod helper;

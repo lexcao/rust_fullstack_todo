@@ -18,11 +18,7 @@ pub async fn create_todo(
 
 #[cfg(test)]
 mod tests {
-    use actix_web::body::to_bytes;
-    use actix_web::{http, test};
-    use serde_json::json;
-    use crate::handlers::todo_handler::configure;
-    use crate::tests::test_request;
+    use actix_web::test;
 
     #[actix_web::test]
     async fn test_create_todo() {

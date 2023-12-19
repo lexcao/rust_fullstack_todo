@@ -28,7 +28,7 @@ pub fn todo_control(
 
     let update_todo_param = use_state(|| Option::<TodoStatus>::None);
     let update_todo_status = {
-        let id = id.clone() as i32;
+        let id = id.clone();
         let status_to_update = update_todo_param.clone().clone();
         let d = dispatcher.clone();
         use_async(async move {

@@ -7,7 +7,6 @@ mod tabs;
 
 pub use todo_detail::*;
 pub use todo_detail::*;
-pub use todo_control::*;
 pub use add_todo::*;
 pub use clear_deleted::*;
 pub use datasource_switcher::*;

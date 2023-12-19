@@ -5,24 +5,24 @@ edition = "2021"
 license = "MIT"
 
 [dependencies]
-actix-web = { version = "4.0.1", features = ["rustls"] }
-actix-cors = "0.6.1"
+actix-web = { version = "4", features = ["rustls"] }
+actix-cors = "0.6"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
-env_logger = "0.9.0"
-log = "0.4.14"
-serde = { version = "1.0.136", features = ["derive"] }
-serde_json = "1.0.79"
-config = "0.12.0"
-deadpool-postgres = { version = "0.10.1", features = ["serde"] }
-tokio-postgres = "0.7.5"
-tokio-pg-mapper = "0.2.0"
-tokio-pg-mapper-derive = "0.2.0"
-postgres-types = { version = "0.2.2", features = ["derive"] }
-anyhow = "1.0.56"
-thiserror = "1.0.30"
-async-trait = "0.1.53"
+env_logger = "0.10"
+log = "0.4"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+config = "0.13"
+deadpool-postgres = { version = "0.12", features = ["serde"] }
+tokio-postgres = "0.7"
+tokio-pg-mapper = "0.2"
+tokio-pg-mapper-derive = "0.2"
+postgres-types = { version = "0.2", features = ["derive"] }
+anyhow = "1"
+thiserror = "1"
+async-trait = "0.1"
 chrono = { version = "0.4", features = ["serde"] }
 common = { path = "../common" }
 
 [dev-dependencies]
-reqwest = { version = "0.11.10", features = ["rustls-tls"], default-features = false }
+reqwest = { version = "0.11", features = ["rustls-tls"], default-features = false }

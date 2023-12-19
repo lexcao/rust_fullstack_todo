@@ -27,14 +27,8 @@ pub async fn get_todos(
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
-    use actix_web::body::to_bytes;
-    use actix_web::{App, test, web};
-    use actix_web::test::TestRequest;
+    use actix_web::test;
     use crate::domains::todo_domain::{Todo, TodoDomainTrait, TodoID, UpdateTodo};
-    use crate::handlers::routes;
-    use crate::Namespace;
-    use actix_web::dev::Service;
     use common::model::TodoStatus;
 
     struct Mock {}

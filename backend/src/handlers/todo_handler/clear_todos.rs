@@ -20,9 +20,7 @@ pub async fn clear_todos(
 
 #[cfg(test)]
 mod tests {
-    use actix_web::{http, test};
-    use crate::handlers::todo_handler::configure;
-    use crate::tests::test_request;
+    use actix_web::test;
 
     #[actix_web::test]
     async fn test_update_todo_status() {

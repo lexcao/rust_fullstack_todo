@@ -10,8 +10,6 @@ async fn ping() -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     #[actix_web::test]
     async fn test_index() {
         let string = ping().await;

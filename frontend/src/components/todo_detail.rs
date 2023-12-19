@@ -35,7 +35,7 @@ pub fn todo_details(TodoDetailsProps { todo, dispatcher }: &TodoDetailsProps) ->
 
     let update_todo_param = use_state(|| String::new());
     let update_todo_content = {
-        let id = todo.id.clone() as i32;
+        let id = todo.id.clone();
         let param = update_todo_param.clone();
         let d = dispatcher.clone();
         use_async(async move {

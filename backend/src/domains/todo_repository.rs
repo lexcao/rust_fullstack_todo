@@ -167,13 +167,7 @@ impl From<TodoEntity> for Todo {
 #[cfg(test)]
 mod tests {
     use deadpool_postgres::Pool;
-
-    use common::model::TodoStatus;
-
-    use crate::domains::todo_domain::Todo;
     use crate::infra::{config, db};
-    use crate::infra::db::RecordNotFound;
-
     use super::TodoRepository;
 
     fn test_db() -> Pool {

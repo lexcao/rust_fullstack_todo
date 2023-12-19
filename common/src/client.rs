@@ -11,7 +11,7 @@ pub use ping_client::PingClient;
 pub struct ScopeClient {
     endpoint: String,
     namespace: Option<String>,
-    inner: reqwest::Client,
+    inner: Client,
 }
 
 impl Default for ScopeClient {
@@ -60,14 +60,14 @@ impl ScopeClient {
     }
 }
 
-pub(crate) fn client(namespace: Option<String>) -> reqwest::Client {
+pub(crate) fn client(namespace: Option<String>) -> Client {
     let mut default_headers = HeaderMap::new();
     if namespace.is_some() {
         let namespace = namespace.unwrap().parse().unwrap();
         default_headers.insert("t-ns", namespace);
     }
 
-    reqwest::Client::builder()
+    Client::builder()
         .default_headers(default_headers)
         .build()
         .expect("Failed to create reqwest Client")
