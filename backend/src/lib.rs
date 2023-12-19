@@ -23,16 +23,13 @@ pub fn start_server(listener: TcpListener, db_pool: Pool) -> Server {
         let todo_domain_trait = Arc::new(todo_domain.clone())
             as Arc<dyn TodoDomainTrait>;
 
-        // TODO fix cors
-        let cors = Cors::permissive();
-
         App::new()
             .wrap_fn(|req, srv| {
                 Namespace::inject(&req);
                 srv.call(req)
             })
             .wrap(middleware::Logger::default())
-            .wrap(cors)
+            .wrap(Cors::permissive())
             .app_data(web::Data::from(todo_domain_trait.clone()))
             .app_data(web::Data::new(todo_domain.clone()))
             .configure(handlers::routes)
