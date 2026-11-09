@@ -31,7 +31,15 @@ jobs:
       run: |
         rustup toolchain install
         rustc -V && cargo -V
-    - run: cargo install trunk --version 0.21.14 --locked
+    - name: Install trunk 0.21.14
+      # 缓存会恢复 ~/.cargo/bin/trunk 但没有 cargo 的安装记录，直接 cargo install 会报「already exists」
+      run: |
+        if trunk --version 2>/dev/null | grep -qx 'trunk 0.21.14'; then
+          echo "trunk 0.21.14 已在缓存里"
+        else
+          cargo install trunk --version 0.21.14 --locked --force
+        fi
+        trunk --version
     - name: Lint
       run: |
         cargo clippy -p frontend -p common -p e2e -p og-gen --all-targets -- -D warnings
