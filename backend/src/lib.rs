@@ -5,7 +5,7 @@ use std::net::TcpListener;
 use std::sync::Arc;
 use actix_cors::Cors;
 use actix_web::dev::{Server, Service};
-use deadpool_postgres::Pool;
+use sqlx::PgPool;
 use handlers::Namespace;
 use crate::domains::todo_domain::{TodoDomain, TodoDomainTrait};
 use crate::handlers::todo_handler;
@@ -14,7 +14,8 @@ pub mod handlers;
 pub mod domains;
 pub mod infra;
 
-pub fn start_server(listener: TcpListener, db_pool: Pool) -> Server {
+pub fn start_server(listener: TcpListener, db_pool: impl Into<PgPool>) -> Server {
+    let db_pool: PgPool = db_pool.into();
     let address = listener.local_addr().unwrap();
     log::info!("starting HTTP server at {}", address);
 

@@ -1,144 +1,131 @@
 use std::str::FromStr;
-use std::time::SystemTime;
+
 use anyhow::Result;
-use chrono::DateTime;
-use deadpool_postgres::Pool;
-use postgres_types::{FromSql, ToSql};
-use tokio_pg_mapper::FromTokioPostgresRow;
-use tokio_pg_mapper_derive::PostgresMapper;
+use chrono::{DateTime, NaiveDateTime, Utc};
+use sqlx::PgPool;
 
 use common::model::TodoStatus;
 
 use crate::domains::todo_domain::{Todo, TodoID};
 use crate::infra::db::RecordNotFound;
 
-#[derive(PostgresMapper, Debug, FromSql, ToSql)]
-#[pg_mapper(table = "todos")]
+/// `todos` 表的一行。时间列是 `TIMESTAMP`（不带时区），按 UTC 存取，和换 sqlx 之前一致。
+#[derive(Debug)]
 struct TodoEntity {
     namespace: String,
     id: i32,
     content: String,
     status: String,
-    created_at: SystemTime,
-    updated_at: SystemTime,
+    created_at: NaiveDateTime,
+    updated_at: NaiveDateTime,
 }
 
 #[derive(Clone)]
 pub struct TodoRepository {
-    db: Pool,
+    db: PgPool,
 }
 
 impl TodoRepository {
-    pub fn new(db: Pool) -> Self {
+    pub fn new(db: PgPool) -> Self {
         Self { db }
     }
 
     pub async fn query_by_id(&self, (namespace, id): TodoID) -> Result<Todo> {
-        let client = self.db.get().await?;
+        let row = sqlx::query_as!(
+            TodoEntity,
+            "SELECT namespace, id, content, status, created_at, updated_at FROM todos WHERE namespace = $1 AND id = $2",
+            namespace,
+            id
+        )
+        .fetch_optional(&self.db)
+        .await?;
 
-        let statement = client
-            .prepare_cached("SELECT * FROM todos WHERE namespace = $1 AND id = $2").await?;
-
-        match client.query_opt(&statement, &[&namespace, &id]).await? {
+        match row {
             None => Err(RecordNotFound.into()),
-            Some(row) => {
-                let entity = TodoEntity::from_row(row).map(Todo::from)?;
-                Ok(entity)
-            }
+            Some(entity) => Todo::try_from(entity),
         }
     }
 
     pub async fn query_todos(&self, namespace: String, status: Option<TodoStatus>) -> Result<Vec<Todo>> {
-        let client = self.db.get().await?;
-
-        // todo improve
         let rows = match status {
             Some(value) => {
-                let statement = client
-                    .prepare_cached("SELECT * FROM todos WHERE namespace = $1 AND status = $2 ORDER BY id DESC").await?;
-
-                client.query(&statement, &[&namespace, &value.to_string()]).await?
+                sqlx::query_as!(
+                    TodoEntity,
+                    "SELECT namespace, id, content, status, created_at, updated_at FROM todos WHERE namespace = $1 AND status = $2 ORDER BY id DESC",
+                    namespace,
+                    value.to_string()
+                )
+                .fetch_all(&self.db)
+                .await?
             }
             None => {
-                let statement = client
-                    .prepare_cached("SELECT * FROM todos WHERE namespace = $1 ORDER BY id DESC").await?;
-
-                client.query(&statement, &[&namespace]).await?
+                sqlx::query_as!(
+                    TodoEntity,
+                    "SELECT namespace, id, content, status, created_at, updated_at FROM todos WHERE namespace = $1 ORDER BY id DESC",
+                    namespace
+                )
+                .fetch_all(&self.db)
+                .await?
             }
         };
 
-        let entities = rows
-            .into_iter()
-            .map(|r| TodoEntity::from_row(r).unwrap())
-            .map(Todo::from)
-            .collect();
-
-        Ok(entities)
+        rows.into_iter().map(Todo::try_from).collect()
     }
 
     pub async fn insert_todo(&self, todo: Todo) -> Result<Todo> {
         let entity = TodoEntity::from(todo);
 
-        let client = self.db.get().await?;
+        let row = sqlx::query_as!(
+            TodoEntity,
+            r#"
+            INSERT INTO todos (namespace, content, status, created_at, updated_at)
+            VALUES ($1, $2, $3, $4, $5)
+            RETURNING namespace, id, content, status, created_at, updated_at
+            "#,
+            entity.namespace,
+            entity.content,
+            entity.status,
+            entity.created_at,
+            entity.updated_at
+        )
+        .fetch_one(&self.db)
+        .await?;
 
-        let statement = client.prepare_cached(r#"
-                INSERT INTO todos (namespace, content, status, created_at, updated_at)
-                VALUES ($1, $2, $3, $4, $5)
-                RETURNING *
-                "#).await?;
-
-        let row = client.query_one(&statement,
-                                   &[
-                                       &entity.namespace,
-                                       &entity.content,
-                                       &entity.status,
-                                       &entity.created_at,
-                                       &entity.updated_at
-                                   ]).await?;
-
-        let entity = TodoEntity::from_row(row).map(Todo::from)?;
-
-        Ok(entity)
+        Todo::try_from(row)
     }
 
     pub async fn update_todo(&self, todo: Todo) -> Result<Todo> {
         let entity = TodoEntity::from(todo);
 
-        let client = self.db.get().await?;
-
-        let statement = client.prepare_cached(r#"
+        let row = sqlx::query_as!(
+            TodoEntity,
+            r#"
             UPDATE todos SET content = $3, status = $4, updated_at = $5
             WHERE namespace = $1 AND id = $2
-            RETURNING *
-        "#).await?;
+            RETURNING namespace, id, content, status, created_at, updated_at
+            "#,
+            entity.namespace,
+            entity.id,
+            entity.content,
+            entity.status,
+            entity.updated_at
+        )
+        .fetch_one(&self.db)
+        .await?;
 
-        let row = client.query_one(
-            &statement,
-            &[
-                &entity.namespace,
-                &entity.id,
-                &entity.content,
-                &entity.status,
-                &entity.updated_at
-            ]).await?;
-
-        let entity = TodoEntity::from_row(row).map(Todo::from)?;
-
-        Ok(entity)
+        Todo::try_from(row)
     }
 
     pub async fn clear_todos(&self, namespace: String, ids: Vec<i32>) -> Result<bool> {
-        let client = self.db.get().await?;
+        let result = sqlx::query!("DELETE FROM todos WHERE namespace = $1 AND id = ANY($2)", namespace, &ids)
+            .execute(&self.db)
+            .await?;
 
-        let statement = client
-            .prepare_cached("DELETE FROM todos WHERE namespace = $1 AND id = ANY($2)").await?;
-
-        let rows = client.execute(&statement, &[&namespace, &ids]).await?;
-
-        Ok(rows as usize == ids.len())
+        Ok(result.rows_affected() as usize == ids.len())
     }
 }
 
+/// 写库：`updated_at` 总是取当前时间（插入和更新都是），和之前的行为一致。
 impl From<Todo> for TodoEntity {
     fn from(todo: Todo) -> Self {
         Self {
@@ -146,70 +133,78 @@ impl From<Todo> for TodoEntity {
             id: todo.id.1,
             content: todo.content,
             status: todo.status.to_string(),
-            created_at: SystemTime::from(todo.created_at),
-            updated_at: SystemTime::now(),
+            created_at: todo.created_at.naive_utc(),
+            updated_at: Utc::now().naive_utc(),
         }
     }
 }
 
-impl From<TodoEntity> for Todo {
-    fn from(todo: TodoEntity) -> Self {
-        Self {
+/// 读库：库里 status 是首字母大写（`Todo`/`Done`/…）；读到别的值返回错误而不是 panic。
+impl TryFrom<TodoEntity> for Todo {
+    type Error = anyhow::Error;
+
+    fn try_from(todo: TodoEntity) -> Result<Self> {
+        Ok(Self {
             id: (todo.namespace, todo.id),
             content: todo.content,
-            status: TodoStatus::from_str(&todo.status).unwrap(),
-            created_at: DateTime::from(todo.created_at),
-            updated_at: DateTime::from(todo.updated_at),
-        }
+            status: TodoStatus::from_str(&todo.status)?,
+            created_at: DateTime::from_naive_utc_and_offset(todo.created_at, Utc),
+            updated_at: DateTime::from_naive_utc_and_offset(todo.updated_at, Utc),
+        })
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use deadpool_postgres::Pool;
     use common::model::TodoStatus;
+    use sqlx::PgPool;
+
+    use super::TodoRepository;
     use crate::domains::todo_domain::Todo;
     use crate::infra::db::RecordNotFound;
-    use crate::infra::{config, db};
-    use super::TodoRepository;
 
-    fn test_db() -> Pool {
-        db::must_init(&config::must_get().db)
-    }
-
-    fn repo() -> TodoRepository {
-        TodoRepository::new(test_db())
-    }
-
+    // 每个 #[sqlx::test] 一个新建的空库（跑完迁移），测试之间互不影响，跑完自动删除。
     static NS: &str = "default";
 
-    #[actix_web::test]
-    async fn query_by_id() {
-        let repo = repo();
+    #[sqlx::test]
+    async fn query_by_id(pool: PgPool) {
+        let repo = TodoRepository::new(pool);
         let not_found = repo.query_by_id((NS.to_string(), 99999)).await;
 
         assert!(not_found.is_err());
         assert!(not_found.unwrap_err().is::<RecordNotFound>());
 
-        let created = repo.insert_todo(Todo::create(NS, "new todo")).await
-            .unwrap();
+        let created = repo.insert_todo(Todo::create(NS, "new todo")).await.unwrap();
 
-        let found = repo.query_by_id(created.id).await.unwrap();
+        let found = repo.query_by_id(created.id.clone()).await.unwrap();
+        assert_eq!(found.id, created.id);
         assert_eq!(found.content, created.content);
-        assert_eq!(found.status, created.status)
+        assert_eq!(found.status, created.status);
+        assert_eq!(found.created_at, created.created_at);
     }
 
-    #[actix_web::test]
-    async fn query_todos() {
-        let repository = repo();
-        let todos = repository.query_todos(NS.to_string(), None).await;
-        println!("{:?}", todos);
+    #[sqlx::test]
+    async fn query_todos(pool: PgPool) {
+        let repo = TodoRepository::new(pool);
+        assert!(repo.query_todos(NS.to_string(), None).await.unwrap().is_empty(), "新库是空的");
+
+        let a = repo.insert_todo(Todo::create(NS, "a")).await.unwrap();
+        let mut b = repo.insert_todo(Todo::create(NS, "b")).await.unwrap();
+        repo.insert_todo(Todo::create("other", "c")).await.unwrap();
+        b.status = TodoStatus::Done;
+        repo.update_todo(b).await.unwrap();
+
+        let all = repo.query_todos(NS.to_string(), None).await.unwrap();
+        assert_eq!(all.iter().map(|t| t.content.as_str()).collect::<Vec<_>>(), ["b", "a"], "按 id 倒序，只有本租户");
+        let done = repo.query_todos(NS.to_string(), Some(TodoStatus::Done)).await.unwrap();
+        assert_eq!(done.iter().map(|t| t.content.as_str()).collect::<Vec<_>>(), ["b"]);
+        let open = repo.query_todos(NS.to_string(), Some(TodoStatus::Todo)).await.unwrap();
+        assert_eq!(open.iter().map(|t| t.id.clone()).collect::<Vec<_>>(), [a.id]);
     }
 
-    #[actix_web::test]
-    async fn insert_todo() {
-        let todo = Todo::create(NS, "new todo");
-        let created = repo().insert_todo(todo).await.unwrap();
+    #[sqlx::test]
+    async fn insert_todo(pool: PgPool) {
+        let created = TodoRepository::new(pool).insert_todo(Todo::create(NS, "new todo")).await.unwrap();
 
         assert_ne!(created.id.1, 0);
         assert_eq!(created.id.0, "default");
@@ -217,35 +212,46 @@ mod tests {
         assert_eq!(created.status, TodoStatus::Todo);
     }
 
-    #[actix_web::test]
-    async fn update_todo() {
-        let repo = repo();
+    #[sqlx::test]
+    async fn update_todo(pool: PgPool) {
+        let repo = TodoRepository::new(pool);
 
-        let todo = Todo::create(NS, "new todo");
-        let mut created = repo.insert_todo(todo).await.unwrap();
+        let mut created = repo.insert_todo(Todo::create(NS, "new todo")).await.unwrap();
 
         created.content = "updated todo".to_string();
         created.status = TodoStatus::Done;
 
         let id = created.id.clone();
+        let created_at = created.created_at;
+        let before = created.updated_at;
 
         let updated = repo.update_todo(created).await.unwrap();
 
         assert_eq!(updated.id, id);
         assert_eq!(updated.content, "updated todo".to_string());
         assert_eq!(updated.status, TodoStatus::Done);
+        assert_eq!(updated.created_at, created_at, "更新不改 created_at");
+        assert!(updated.updated_at >= before);
     }
 
-    #[actix_web::test]
-    async fn clear_todos() {
-        let mut ids_to_clear = vec![];
-        let repo = repo();
-        let todo = Todo::create(NS, "new todo");
-        let created = repo.insert_todo(todo).await.unwrap();
-        ids_to_clear.push(created.id.1);
+    #[sqlx::test]
+    async fn clear_todos(pool: PgPool) {
+        let repo = TodoRepository::new(pool);
+        let created = repo.insert_todo(Todo::create(NS, "new todo")).await.unwrap();
 
-        let deleted = repo.clear_todos(NS.to_string(), ids_to_clear).await.unwrap();
+        assert!(!repo.clear_todos("other".to_string(), vec![created.id.1]).await.unwrap(), "别的租户删不到");
+        assert!(repo.clear_todos(NS.to_string(), vec![created.id.1]).await.unwrap());
+        assert!(repo.query_todos(NS.to_string(), None).await.unwrap().is_empty());
+    }
 
-        assert!(deleted);
+    /// 库里出现无法识别的 status 时返回错误，不 panic（release 是 panic=abort，panic 会让进程退出）。
+    #[sqlx::test]
+    async fn unknown_status_in_db_is_an_error_not_a_panic(pool: PgPool) {
+        sqlx::query("INSERT INTO todos (namespace, content, status, created_at, updated_at) VALUES ('default', 'x', 'Bogus', now(), now())")
+            .execute(&pool)
+            .await
+            .unwrap();
+        let repo = TodoRepository::new(pool);
+        assert!(repo.query_todos(NS.to_string(), None).await.is_err());
     }
 }

@@ -11,6 +11,11 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  # 只指向本 job 的 service container（与 application.toml 本地默认值相同，不是真实密钥）。
+  # #[sqlx::test] 用它为每个测试新建一个独立库；契约/ping 测试用 application.toml 的共享库。
+  DATABASE_URL: postgres://user:password@localhost:5432/rust_fullstack_todo
+  # 编译期查询检查只用仓库里提交的 backend/.sqlx，不连库；是否过期由 "Offline query data" 一步检查
+  SQLX_OFFLINE: "true"
 
 jobs:
   test:
@@ -40,16 +45,34 @@ jobs:
         path: |
           ~/.cargo/registry
           ~/.cargo/git
+          ~/.cargo/bin/sqlx
+          ~/.cargo/bin/cargo-sqlx
           target
         key: ${{ runner.os }}-backend-${{ hashFiles('**/Cargo.lock') }}
     - name: Toolchain (rust-toolchain.toml)
       run: |
         rustup toolchain install
         rustc -V
-    - name: Schema
+    - name: Install sqlx-cli 0.9.0
+      run: |
+        # 缓存命中时已安装同版本就跳过；版本不同才强制重装（幂等）
+        if cargo sqlx --version 2>/dev/null | grep -q "0.9.0"; then
+          echo "sqlx-cli 0.9.0 already installed"
+        else
+          cargo install sqlx-cli --version 0.9.0 --no-default-features --features rustls,postgres --locked --force
+        fi
+    # 不再用 psql 建表：表由 backend/migrations 建（服务启动和 #[sqlx::test] 都会自动跑迁移）
+    - name: Migrations (empty database, then idempotent re-run)
+      working-directory: backend
+      run: |
+        cargo sqlx migrate run
+        cargo sqlx migrate run
+        cargo sqlx migrate info
+    - name: Offline query data is up to date
+      working-directory: backend
       env:
-        PGPASSWORD: password
-      run: psql -h localhost -U user -d rust_fullstack_todo -v ON_ERROR_STOP=1 -f backend/schemas/00_init_tables.sql
+        SQLX_OFFLINE: "false"
+      run: cargo sqlx prepare --check
     - name: Lint
       run: cargo clippy -p backend --all-targets -- -D warnings
     - name: Test
