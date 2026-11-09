@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: rust-fullstack-todo
+    runtime: docker
+    plan: free
+    healthCheckPath: /ping
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: RUST_LOG
+        value: info

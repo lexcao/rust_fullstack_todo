@@ -54,7 +54,14 @@ Thanks for the open source.
 ### [Deployment](Deployment.md)
 
 * frontend: [Vercel](https://vercel.com/)
-* backend: [Railway](https://railway.app/)
-* postgres: [Supabase](https://supabase.com/)
+* backend: [Render Free Web](https://render.com/docs/free), using `render.yaml` and Docker
+* postgres: [Neon Free Postgres](https://neon.com/), using `DATABASE_URL` with `sslmode=require`
+
+Set the database URL only in the hosting environment. `APP_DB_URL` or the existing
+`APP_DB_HOST`, `APP_DB_PORT`, `APP_DB_USER`, `APP_DB_PASSWORD`, `APP_DB_DBNAME`
+settings are also supported. `PORT` takes precedence over `APP_SERVER_PORT`;
+the backend listens on `0.0.0.0`. Startup creates the todos table if it is missing.
+Render and Neon free tiers can sleep when idle, so the first request may be slow.
+See [Deployment.md](Deployment.md) for setup and TLS details.
 
 # [Design](Design.md)

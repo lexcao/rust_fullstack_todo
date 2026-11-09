@@ -15,6 +15,8 @@ serde_json = "1"
 config = "0.13"
 deadpool-postgres = { version = "0.12", features = ["serde"] }
 tokio-postgres = "0.7"
+postgres-native-tls = "0.5"
+native-tls = "0.2"
 tokio-pg-mapper = "0.2"
 tokio-pg-mapper-derive = "0.2"
 postgres-types = { version = "0.2", features = ["derive"] }
