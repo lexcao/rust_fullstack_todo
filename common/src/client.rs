@@ -62,9 +62,8 @@ impl ScopeClient {
 
 pub(crate) fn client(namespace: Option<String>) -> Client {
     let mut default_headers = HeaderMap::new();
-    if namespace.is_some() {
-        let namespace = namespace.unwrap().parse().unwrap();
-        default_headers.insert("t-ns", namespace);
+    if let Some(namespace) = namespace {
+        default_headers.insert("t-ns", namespace.parse().unwrap());
     }
 
     Client::builder()

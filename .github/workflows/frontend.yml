@@ -27,10 +27,17 @@ jobs:
           ~/.cargo/git
           target
         key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-    - run: rustup target add wasm32-unknown-unknown
+    - name: Toolchain (rust-toolchain.toml)
+      run: |
+        rustup toolchain install
+        rustc -V && cargo -V
     - run: cargo install trunk --version 0.21.14 --locked
-    - name: Lint (new Rust tooling crates)
-      run: cargo clippy -p e2e -p og-gen --all-targets -- -D warnings
+    - name: Lint
+      run: |
+        cargo clippy -p frontend -p common -p e2e -p og-gen --all-targets -- -D warnings
+        cargo clippy -p frontend -p common --target wasm32-unknown-unknown -- -D warnings
+    - name: Backend compiles (not deployed)
+      run: cargo clippy -p backend -- -D warnings
     - name: Unit tests
       run: cargo test -p frontend -p common
     - name: Build
