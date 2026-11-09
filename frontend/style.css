@@ -431,8 +431,8 @@ button { font: inherit; color: inherit; }
     .flow li, .flow li + li { padding: 12px 0; border-left: 0; border-bottom: 1px solid var(--line); grid-template-columns: 28px minmax(0, 1fr); column-gap: 8px; row-gap: 2px; align-items: baseline; }
     .flow-name { font-size: 17px; }
     .flow-note { grid-column: 2; }
-    /* 手机：5 个标签等分一行，不横滑；标签和计数上下排，触控高度 ≥ 44px */
-    .tabs { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0; overflow: visible; margin: 0; padding: 0; }
+    /* 手机：5 个标签排一行，不横滑；列宽按文字分配（auto 轨道会拉伸填满），宽字体下 Archived 也不截断；触控 ≥ 44px */
+    .tabs { display: grid; grid-template-columns: repeat(5, minmax(44px, auto)); gap: 0; overflow: visible; margin: 0; padding: 0; }
     .tab { flex-direction: column; justify-content: center; gap: 3px; min-width: 0; min-height: 52px; padding: 6px 0 9px; font-size: 12.5px; letter-spacing: -.01em; }
     .tab > span:first-child { max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
     .tab-count { min-width: 18px; padding: 1px 5px; font-size: 10.5px; }
