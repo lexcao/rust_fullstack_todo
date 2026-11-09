@@ -92,7 +92,7 @@ pub struct TodoDomain {
 }
 
 impl TodoDomain {
-    pub fn new(pool: deadpool_postgres::Pool) -> Self {
+    pub fn new(pool: sqlx::PgPool) -> Self {
         Self { repo: TodoRepository::new(pool) }
     }
 

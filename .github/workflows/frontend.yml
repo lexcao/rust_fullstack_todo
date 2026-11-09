@@ -45,6 +45,9 @@ jobs:
         cargo clippy -p frontend -p common -p e2e -p og-gen --all-targets -- -D warnings
         cargo clippy -p frontend -p common --target wasm32-unknown-unknown -- -D warnings
     - name: Backend compiles (not deployed)
+      # 这里没有数据库：sqlx 查询宏只用提交的 backend/.sqlx 离线数据
+      env:
+        SQLX_OFFLINE: "true"
       run: cargo clippy -p backend -- -D warnings
     - name: Unit tests
       run: cargo test -p frontend -p common

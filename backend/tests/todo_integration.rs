@@ -1,14 +1,16 @@
 use common::client::{TodoClient, ScopeClient};
 use common::model::{CreateTodoRequest, TodoResponse, TodoStatus, UpdateTodoRequest};
-use crate::helper::spawn_server;
+use sqlx::PgPool;
+
+use crate::helper::spawn_server_with;
 
 mod helper;
 
 pub const NS: &str = "testing/integration";
 
-#[tokio::test]
-async fn get_todos() -> anyhow::Result<()> {
-    let base_url = spawn_server();
+#[sqlx::test]
+async fn get_todos(pool: PgPool) -> anyhow::Result<()> {
+    let base_url = spawn_server_with(pool);
 
     let client = ScopeClient::default()
         .endpoint(&base_url)
@@ -22,9 +24,9 @@ async fn get_todos() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[tokio::test]
-async fn get_todos_not_empty() -> anyhow::Result<()> {
-    let base_url = spawn_server();
+#[sqlx::test]
+async fn get_todos_not_empty(pool: PgPool) -> anyhow::Result<()> {
+    let base_url = spawn_server_with(pool);
 
     let client = ScopeClient::default()
         .endpoint(&base_url)
@@ -57,9 +59,9 @@ async fn get_todos_not_empty() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[tokio::test]
-async fn get_todos_query_status() -> anyhow::Result<()> {
-    let base_url = spawn_server();
+#[sqlx::test]
+async fn get_todos_query_status(pool: PgPool) -> anyhow::Result<()> {
+    let base_url = spawn_server_with(pool);
 
     let client = ScopeClient::default()
         .endpoint(&base_url)
@@ -110,9 +112,9 @@ async fn create_todo_with_status(client: &TodoClient, status: Option<TodoStatus>
     Ok(response)
 }
 
-#[tokio::test]
-async fn get_todo_by_id() -> anyhow::Result<()> {
-    let client = client();
+#[sqlx::test]
+async fn get_todo_by_id(pool: PgPool) -> anyhow::Result<()> {
+    let client = client(pool);
 
     let res = client.get_todo_by_id(99999).await?;
 
@@ -121,9 +123,9 @@ async fn get_todo_by_id() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[tokio::test]
-async fn create_todo() -> anyhow::Result<()> {
-    let client = client();
+#[sqlx::test]
+async fn create_todo(pool: PgPool) -> anyhow::Result<()> {
+    let client = client(pool);
 
     let data = client.create_todo(CreateTodoRequest {
         content: "create a new todo".to_string(),
@@ -141,9 +143,9 @@ async fn create_todo() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[tokio::test]
-async fn update_todo() -> anyhow::Result<()> {
-    let client = client();
+#[sqlx::test]
+async fn update_todo(pool: PgPool) -> anyhow::Result<()> {
+    let client = client(pool);
 
     // create first
     let created = client.create_todo(CreateTodoRequest {
@@ -172,8 +174,8 @@ async fn update_todo() -> anyhow::Result<()> {
 //     todo!()
 // }
 
-fn client() -> TodoClient {
-    let base_url = spawn_server();
+fn client(pool: PgPool) -> TodoClient {
+    let base_url = spawn_server_with(pool);
 
     ScopeClient::default()
         .endpoint(&base_url)

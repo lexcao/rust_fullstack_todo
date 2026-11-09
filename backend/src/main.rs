@@ -10,7 +10,11 @@ async fn main() -> std::io::Result<()> {
 
     let config = config::must_get();
 
-    let db_pool = db::must_init(&config.db);
+    let db_pool: sqlx::PgPool = db::must_init(&config.db).into();
+
+    // 空库自动建表；已迁移的库是空操作（重启幂等）
+    db::migrate(&db_pool).await.map_err(|e| std::io::Error::other(format!("{e:#}")))?;
+    log::info!("database migrations are up to date");
 
     start_server(config.address(), db_pool).await
 }
