@@ -38,69 +38,59 @@ impl From<UpdateTodoRequest> for UpdateTodo {
 
 #[cfg(test)]
 mod tests {
-    use actix_web::test;
+    use std::sync::Arc;
+
+    use actix_web::test::TestRequest;
+    use common::model::TodoStatus;
+    use serde_json::json;
+
+    use crate::tests::{MISSING_ID, Mock, call, json};
 
     #[actix_web::test]
-    async fn test_update_todo() {
-        let request = test::TestRequest::patch()
-            .uri("/3")
-            .set_json(json!({"content": "updated a todo"}));
+    async fn updates_content_and_status() {
+        let mock = Arc::new(Mock::default());
+        let req = TestRequest::patch()
+            .uri("/todos/3")
+            .insert_header(("t-ns", "ns-a"))
+            .set_json(json!({"content": "updated", "status": "done"}));
+        let (status, body) = call(mock.clone(), req).await;
 
-        let response = test_request(configure, request, http::StatusCode::OK).await;
-        let body_bytes = to_bytes(response.into_body()).await.unwrap();
-
-        assert_eq!(body_bytes, r##"{"id":3,"content":"updated a todo","status":"Todo"}"##, );
+        assert_eq!(status, 200);
+        let v = json(&body);
+        assert_eq!((v["id"].as_i64(), v["content"].as_str(), v["status"].as_str()), (Some(3), Some("updated"), Some("done")));
+        assert_eq!(
+            *mock.updated.lock().unwrap(),
+            [(("ns-a".to_string(), 3), Some("updated".to_string()), Some(TodoStatus::Done))]
+        );
     }
 
     #[actix_web::test]
-    async fn test_update_todo_not_found() {
-        let request = test::TestRequest::patch()
-            .uri("/999")
-            .set_json(json!({"content": "updated a todo"}));
+    async fn neither_field_is_400_with_exact_error_body() {
+        let mock = Arc::new(Mock::default());
+        let (status, body) = call(mock.clone(), TestRequest::patch().uri("/todos/3").set_json(json!({}))).await;
 
-        let response = test_request(configure, request, http::StatusCode::NOT_FOUND).await;
-        let body_bytes = to_bytes(response.into_body()).await.unwrap();
-
-        assert_eq!(body_bytes, r##"{"code":"TodoNotFound","message":"Todo [id: 999] not found.}"##, );
+        assert_eq!(status, 400);
+        assert_eq!(json(&body), json!({"error": "expect one of `status` or `content`"}));
+        assert!(mock.updated.lock().unwrap().is_empty());
     }
 
     #[actix_web::test]
-    async fn test_update_todo_invalid_id_not_number() {
-        let request = test::TestRequest::patch()
-            .uri("/nan")
-            .set_json(json!({"content": "updated a todo"}));
-
-        let response = test_request(configure, request, http::StatusCode::NOT_FOUND).await;
-        let body_bytes = to_bytes(response.into_body()).await.unwrap();
-
-        assert_eq!(body_bytes, r##"{"id":3,"content":"updated a todo","status":"Todo"}"##, );
+    async fn unknown_status_value_is_400() {
+        let (status, _) = call(Arc::new(Mock::default()), TestRequest::patch().uri("/todos/3").set_json(json!({"status": "Done"}))).await;
+        assert_eq!(status, 400);
     }
 
     #[actix_web::test]
-    async fn test_update_todo_status() {
-        let request = test::TestRequest::patch()
-            .uri("/3/done");
-
-        let response = test_request(configure, request, http::StatusCode::OK).await;
-        let body_bytes = to_bytes(response.into_body()).await.unwrap();
-
-        assert_eq!(body_bytes, r##"{"id":3,"content":"todo content","status":"Done"}"##, );
+    async fn non_numeric_id_is_404() {
+        let (status, _) = call(Arc::new(Mock::default()), TestRequest::patch().uri("/todos/nan").set_json(json!({"content": "x"}))).await;
+        assert_eq!(status, 404);
     }
 
+    /// 现状：不存在的 id 返回 500（RecordNotFound 没映射）。P3.4 按契约改成 404。
     #[actix_web::test]
-    async fn test_update_todo_status_invalid_input_status() {
-        let request = test::TestRequest::patch()
-            .uri("/3/no-status");
-
-        let response = test_request(configure, request, http::StatusCode::NOT_FOUND).await;
-        let body_bytes = to_bytes(response.into_body()).await.unwrap();
-
-        assert_eq!(body_bytes, "unknown variant `no-status`, expected one of `todo`, `done`, `archive`, `deleted`");
-    }
-
-    #[actix_web::test]
-    async fn test_update_todo_status_invalid_tranform_status() {
-        let _request = test::TestRequest::patch()
-            .uri("/3/done");
+    async fn missing_id_is_currently_500() {
+        let req = TestRequest::patch().uri(&format!("/todos/{MISSING_ID}")).set_json(json!({"content": "x"}));
+        let (status, _) = call(Arc::new(Mock::default()), req).await;
+        assert_eq!(status, 500);
     }
 }

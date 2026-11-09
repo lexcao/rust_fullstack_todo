@@ -10,10 +10,16 @@ async fn ping() -> String {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
+    use actix_web::test::TestRequest;
+
+    use crate::tests::{Mock, call};
+
     #[actix_web::test]
-    async fn test_index() {
-        let string = ping().await;
-        assert_eq!(string, "pong");
+    async fn ping_is_pong_text() {
+        let (status, body) = call(Arc::new(Mock::default()), TestRequest::get().uri("/ping")).await;
+        assert_eq!(status, 200);
+        assert_eq!(body, "pong");
     }
 }
-

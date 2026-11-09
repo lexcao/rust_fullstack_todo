@@ -102,7 +102,7 @@ async fn create_todo_with_status(client: &TodoClient, status: Option<TodoStatus>
         content: format!("create todo with status {:?}", status),
     }).await?;
 
-    let response = client.update_todo(created.id.clone(), UpdateTodoRequest {
+    let response = client.update_todo(created.id, UpdateTodoRequest {
         content: None,
         status,
     }).await?;

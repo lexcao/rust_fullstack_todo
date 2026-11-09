@@ -16,19 +16,4 @@ pub async fn create_todo(
     Ok(HttpResponse::Created().json(TodoResponse::from(res)))
 }
 
-#[cfg(test)]
-mod tests {
-    use actix_web::test;
-
-    #[actix_web::test]
-    async fn test_create_todo() {
-        let request = test::TestRequest::post()
-            .uri("/")
-            .set_json(json!({"content": "create a todo"}));
-
-        let response = test_request(configure, request, http::StatusCode::CREATED).await;
-        let body_bytes = to_bytes(response.into_body()).await.unwrap();
-
-        assert_eq!(body_bytes, r##"{"id":2,"content":"create a todo","status":"Todo"}"##, );
-    }
-}
+// 单测：create_todo 依赖具体的 TodoDomain（要连数据库），没法用 mock；由 tests/api_contract.rs 覆盖。

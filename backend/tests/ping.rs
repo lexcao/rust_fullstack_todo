@@ -1,7 +1,5 @@
 use common::client::ScopeClient;
 
-use common::client::ScopeClient;
-
 use crate::helper::spawn_server;
 
 mod helper;
@@ -34,7 +32,12 @@ async fn test_ping_server_unavailable() -> anyhow::Result<()> {
         .unwrap();
 
     assert!(error.is_connect());
-    assert!(error.to_string().contains("Connection refused"));
+    // reqwest 0.13 的 Display 不再带底层原因，沿 source 链找
+    let chain = std::iter::successors(Some(&error as &dyn std::error::Error), |e| e.source())
+        .map(|e| e.to_string())
+        .collect::<Vec<_>>()
+        .join(": ");
+    assert!(chain.to_lowercase().contains("connection refused"), "{chain}");
     assert!(!client.health().await);
 
     Ok(())

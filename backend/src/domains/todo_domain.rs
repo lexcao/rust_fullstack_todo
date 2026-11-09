@@ -162,10 +162,3 @@ pub enum TodoError {
     #[error("invalid status from str {0}")]
     InvalidStatusFromStr(String),
 }
-
-
-#[cfg(test)]
-mod tests {
-    #[actix_web::test]
-    async fn check() {}
-}

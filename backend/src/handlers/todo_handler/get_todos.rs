@@ -27,74 +27,53 @@ pub async fn get_todos(
 
 #[cfg(test)]
 mod tests {
-    use actix_web::test;
-    use crate::domains::todo_domain::{Todo, TodoDomainTrait, TodoID, UpdateTodo};
+    use std::sync::Arc;
+
+    use actix_web::test::TestRequest;
     use common::model::TodoStatus;
 
-    struct Mock {}
+    use crate::tests::{Mock, call, json};
 
-    impl Mock {
-        fn new() -> Self {
-            Mock {}
-        }
+    #[actix_web::test]
+    async fn lists_todos_of_the_request_namespace() {
+        let mock = Arc::new(Mock::default());
+        let (status, body) = call(mock.clone(), TestRequest::get().uri("/todos").insert_header(("t-ns", "ns-a"))).await;
+
+        assert_eq!(status, 200);
+        let ids: Vec<i64> = json(&body).as_array().unwrap().iter().map(|t| t["id"].as_i64().unwrap()).collect();
+        assert_eq!(ids, [2, 1]);
+        assert_eq!(*mock.listed.lock().unwrap(), [("ns-a".to_string(), None)]);
     }
 
-    #[async_trait::async_trait]
-    impl TodoDomainTrait for Mock {
-        async fn get_todo_by_id(&self, _id: TodoID) -> anyhow::Result<Todo> {
-            Ok(Todo::default())
-        }
+    #[actix_web::test]
+    async fn missing_namespace_header_means_default() {
+        let mock = Arc::new(Mock::default());
+        call(mock.clone(), TestRequest::get().uri("/todos")).await;
+        assert_eq!(mock.listed.lock().unwrap()[0].0, "default");
+    }
 
-        async fn list_todo(&self, _namespace: String, _status: Option<TodoStatus>) -> anyhow::Result<Vec<Todo>> {
-            Ok(vec![])
-        }
-
-        async fn create_todo(&self, _namespace: String, _content: &str) -> anyhow::Result<Todo> {
-            Ok(Todo::default())
-        }
-
-        async fn update_todo(&self, _id: TodoID, _to_update: UpdateTodo) -> anyhow::Result<Todo> {
-            Ok(Todo::default())
-        }
-
-        async fn clear_todos(&self, _namespace: String, _ids: Vec<i32>) -> anyhow::Result<()> {
-            Ok(())
+    #[actix_web::test]
+    async fn status_query_is_lowercase() {
+        let mock = Arc::new(Mock::default());
+        for (q, expect) in [
+            ("todo", TodoStatus::Todo),
+            ("done", TodoStatus::Done),
+            ("archived", TodoStatus::Archived),
+            ("deleted", TodoStatus::Deleted),
+        ] {
+            let (status, _) = call(mock.clone(), TestRequest::get().uri(&format!("/todos?status={q}"))).await;
+            assert_eq!(status, 200, "status={q}");
+            assert_eq!(mock.listed.lock().unwrap().last().unwrap().1, Some(expect));
         }
     }
 
     #[actix_web::test]
-    async fn test_get_todos() {
-        let service = Arc::new(Mock::new()) as Arc<dyn TodoDomainTrait>;
-
-        let app = App::new()
-            .wrap_fn(|req, srv| {
-                Namespace::inject(&req);
-                srv.call(req)
-            })
-            .app_data(web::Data::from(service))
-            .configure(routes);
-
-        let app = test::init_service(app).await;
-        let request = TestRequest::get().uri("/todos");
-        let response = request.send_request(&app).await;
-        assert_eq!(response.status().as_u16(), 200);
-
-        let body_bytes = to_bytes(response.into_body()).await.unwrap();
-
-        assert_eq!(body_bytes, r##"[]"##, );
-    }
-
-    #[actix_web::test]
-    async fn test_get_todos_by_status() {
-        // let request = TestRequest::default().uri("?status=todo").to_http_request();
-        // let query = Query::from_query(&request.query_string()).unwrap();
-        // let resp = get_todos(query).await;
-        //
-        // assert_eq!(resp.status(), http::StatusCode::OK);
-        // let body_bytes = to_bytes(resp.into_body()).await.unwrap();
-        // assert_eq!(
-        //     body_bytes,
-        //     r##"[{"id":1,"content":"first thing","status":"Todo"}]"##
-        // );
+    async fn unknown_status_query_is_400() {
+        let mock = Arc::new(Mock::default());
+        for q in ["Done", "bogus"] {
+            let (status, _) = call(mock.clone(), TestRequest::get().uri(&format!("/todos?status={q}"))).await;
+            assert_eq!(status, 400, "status={q}");
+        }
+        assert!(mock.listed.lock().unwrap().is_empty());
     }
 }

@@ -20,13 +20,29 @@ pub async fn clear_todos(
 
 #[cfg(test)]
 mod tests {
-    use actix_web::test;
+    use std::sync::Arc;
+
+    use actix_web::test::TestRequest;
+    use serde_json::json;
+
+    use crate::tests::{Mock, call};
 
     #[actix_web::test]
-    async fn test_update_todo_status() {
-        let request = test::TestRequest::patch()
-            .uri("/3");
+    async fn deletes_ids_in_the_request_namespace() {
+        let mock = Arc::new(Mock::default());
+        let req = TestRequest::delete().uri("/todos").insert_header(("t-ns", "ns-a")).set_json(json!({"ids": [1, 2]}));
+        let (status, body) = call(mock.clone(), req).await;
 
-        test_request(configure, request, http::StatusCode::OK).await;
+        assert_eq!(status, 200);
+        assert!(body.is_empty());
+        assert_eq!(*mock.cleared.lock().unwrap(), [("ns-a".to_string(), vec![1, 2])]);
+    }
+
+    #[actix_web::test]
+    async fn empty_ids_is_200_and_touches_nothing() {
+        let mock = Arc::new(Mock::default());
+        let (status, _) = call(mock.clone(), TestRequest::delete().uri("/todos").set_json(json!({"ids": []}))).await;
+        assert_eq!(status, 200);
+        assert!(mock.cleared.lock().unwrap().is_empty());
     }
 }
