@@ -167,6 +167,9 @@ impl From<TodoEntity> for Todo {
 #[cfg(test)]
 mod tests {
     use deadpool_postgres::Pool;
+    use common::model::TodoStatus;
+    use crate::domains::todo_domain::Todo;
+    use crate::infra::db::RecordNotFound;
     use crate::infra::{config, db};
     use super::TodoRepository;
 
@@ -178,7 +181,7 @@ mod tests {
         TodoRepository::new(test_db())
     }
 
-    static NS: &'static str = "default";
+    static NS: &str = "default";
 
     #[actix_web::test]
     async fn query_by_id() {
@@ -188,7 +191,7 @@ mod tests {
         assert!(not_found.is_err());
         assert!(not_found.unwrap_err().is::<RecordNotFound>());
 
-        let created = repo.insert_todo(Todo::create(&NS, "new todo")).await
+        let created = repo.insert_todo(Todo::create(NS, "new todo")).await
             .unwrap();
 
         let found = repo.query_by_id(created.id).await.unwrap();
@@ -205,7 +208,7 @@ mod tests {
 
     #[actix_web::test]
     async fn insert_todo() {
-        let todo = Todo::create(&NS, "new todo");
+        let todo = Todo::create(NS, "new todo");
         let created = repo().insert_todo(todo).await.unwrap();
 
         assert_ne!(created.id.1, 0);
@@ -218,7 +221,7 @@ mod tests {
     async fn update_todo() {
         let repo = repo();
 
-        let todo = Todo::create(&NS, "new todo");
+        let todo = Todo::create(NS, "new todo");
         let mut created = repo.insert_todo(todo).await.unwrap();
 
         created.content = "updated todo".to_string();
@@ -237,7 +240,7 @@ mod tests {
     async fn clear_todos() {
         let mut ids_to_clear = vec![];
         let repo = repo();
-        let todo = Todo::create(&NS, "new todo");
+        let todo = Todo::create(NS, "new todo");
         let created = repo.insert_todo(todo).await.unwrap();
         ids_to_clear.push(created.id.1);
 
