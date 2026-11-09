@@ -1,12 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
+<!-- BRAND: 改名时同步 title / description / og:* / twitter:* / .brand-name，以及 src/brand.rs -->
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Rust Fullstack Todo</title>
     <meta name="description" content="Rust Fullstack Todo is a full-stack learning demo built with Rust, Yew, and actix-web. Explore the app and its English and Chinese tutorials.">
     <link rel="canonical" href="https://todos.lexcao.io/">
-    <meta name="theme-color" content="#b7472a">
+    <meta name="theme-color" content="#f4efe7" media="(prefers-color-scheme: light)">
+    <meta name="theme-color" content="#16120f" media="(prefers-color-scheme: dark)">
+    <meta name="color-scheme" content="light dark">
     <meta property="og:title" content="Rust Fullstack Todo">
     <meta property="og:description" content="A Rust / Yew + actix-web learning demo">
     <meta property="og:url" content="https://todos.lexcao.io/">
@@ -23,42 +26,66 @@
     <link data-trunk rel="copy-file" href="sitemap.xml">
     <link data-trunk rel="copy-file" href="favicon.svg">
     <link data-trunk rel="copy-file" href="og.png">
+    <link data-trunk rel="copy-dir" href="assets">
+    <link rel="preload" href="/assets/bricolage-latin.woff2" as="font" type="font/woff2" crossorigin>
+    <link data-trunk rel="css" href="style.css">
     <link data-trunk rel="rust" href="Cargo.toml" data-wasm-opt="z">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bulma@0.9.3/css/bulma.min.css">
-    <link rel="stylesheet"
-          href="https://cdn.jsdelivr.net/npm/@creativebulma/bulma-tooltip@1.2.0/dist/bulma-tooltip.min.css">
-    <style>
-        html {
-            overflow: hidden;
-            height: 100%;
-        }
-
-        body {
-            height: 100%;
-            overflow: auto;
-        }
-    </style>
 </head>
 <body>
-    <section class="section seo-static" aria-label="About Rust Fullstack Todo">
-        <h1 class="title is-4">Rust Fullstack Todo</h1>
-        <p>A Rust / Yew + actix-web full-stack learning demo.
-            Read the <a href="https://lexcao.io/posts/learn-rust-fullstack/">English tutorial</a>
-            or the <a href="https://lexcao.io/zh/posts/learn-rust-fullstack/">Chinese tutorial</a>.</p>
-        <p lang="zh">这是一个使用 Rust、Yew 与 actix-web 构建的全栈学习演示。
-            阅读 <a href="https://lexcao.io/zh/posts/learn-rust-fullstack/">中文教程</a>
-            或 <a href="https://lexcao.io/posts/learn-rust-fullstack/">英文教程</a>。</p>
-    </section>
-    <noscript>
-        <section class="section" aria-label="About Rust Fullstack Todo">
-            <h1 class="title">Rust Fullstack Todo</h1>
-            <p>A full-stack learning demo built with Rust, Yew, and actix-web.
-                Enable JavaScript to use the app, or read the
-                <a href="https://lexcao.io/posts/learn-rust-fullstack/">English tutorial</a>.</p>
-            <p lang="zh">这是一个使用 Rust、Yew 和 actix-web 构建的全栈学习演示。
-                请启用 JavaScript 使用应用，或阅读
-                <a href="https://lexcao.io/zh/posts/learn-rust-fullstack/">中文教程</a>。</p>
+<a class="skip-link" href="#new-todo">Skip to the demo</a>
+<div class="page">
+    <header class="topbar">
+        <a class="wordmark" href="/" aria-label="Rust Fullstack Todo home">
+            <span class="wordmark-glyph" aria-hidden="true"></span>
+            <span class="brand-name">Rust Fullstack Todo</span>
+        </a>
+        <nav class="topnav" aria-label="Project links">
+            <a href="https://lexcao.io/posts/learn-rust-fullstack/">Tutorial</a>
+            <a href="https://lexcao.io/zh/posts/learn-rust-fullstack/" lang="zh-CN">中文教程</a>
+            <a href="https://github.com/lexcao/rust_fullstack_todo" class="topnav-gh">GitHub<span aria-hidden="true"> ↗</span></a>
+        </nav>
+    </header>
+
+    <main class="layout">
+        <section class="intro seo-static" aria-labelledby="intro-title">
+            <p class="eyebrow"><span>Rust</span><span>Yew</span><span>actix-web</span></p>
+            <h1 id="intro-title" class="intro-title"><span class="brand-name">Rust Fullstack Todo</span></h1>
+            <p class="lede">A Rust / Yew + actix-web full-stack learning demo.
+                Read the <a href="https://lexcao.io/posts/learn-rust-fullstack/">English tutorial</a>
+                or the <a href="https://lexcao.io/zh/posts/learn-rust-fullstack/">Chinese tutorial</a>.</p>
+            <p class="lede lede-zh" lang="zh-CN">这是一个使用 Rust、Yew 与 actix-web 构建的全栈学习演示。
+                阅读 <a href="https://lexcao.io/zh/posts/learn-rust-fullstack/">中文教程</a>
+                或 <a href="https://lexcao.io/posts/learn-rust-fullstack/">英文教程</a>。</p>
+            <ol class="flow" aria-label="How the demo is built">
+                <li><span class="flow-step">01</span><span class="flow-name">Yew</span><span class="flow-note">Rust → WebAssembly UI</span></li>
+                <li><span class="flow-step">02</span><span class="flow-name">actix-web</span><span class="flow-note">REST API in Rust</span></li>
+                <li><span class="flow-step">03</span><span class="flow-name">PostgreSQL</span><span class="flow-note">or your browser’s localStorage</span></li>
+            </ol>
         </section>
-    </noscript>
+
+        <section id="app" class="demo" aria-label="Todo demo">
+            <div class="board board-placeholder" aria-hidden="true">
+                <p class="board-kicker">Live demo</p>
+                <p class="board-loading">Loading the WebAssembly app…</p>
+            </div>
+        </section>
+    </main>
+
+    <footer class="footer">
+        <p>Built by <a href="https://lexcao.io">Lex Cao</a> as a learning project.</p>
+        <p>Source on <a href="https://github.com/lexcao/rust_fullstack_todo">GitHub</a> · MIT</p>
+    </footer>
+</div>
+<noscript>
+    <section class="noscript" aria-label="About Rust Fullstack Todo">
+        <h2>Rust Fullstack Todo</h2>
+        <p>A full-stack learning demo built with Rust, Yew, and actix-web.
+            Enable JavaScript to use the app, or read the
+            <a href="https://lexcao.io/posts/learn-rust-fullstack/">English tutorial</a>.</p>
+        <p lang="zh">这是一个使用 Rust、Yew 和 actix-web 构建的全栈学习演示。
+            请启用 JavaScript 使用应用，或阅读
+            <a href="https://lexcao.io/zh/posts/learn-rust-fullstack/">中文教程</a>。</p>
+    </section>
+</noscript>
 </body>
 </html>

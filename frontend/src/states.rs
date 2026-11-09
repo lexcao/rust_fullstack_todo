@@ -50,7 +50,7 @@ impl Reducible for TodoState {
         let next = match action {
             TodoAction::Add(content) => {
                 let mut locals = self.locals.clone();
-                let todo = create_todo(&locals.len(), &content);
+                let todo = create_todo(next_id(&locals), &content);
                 locals.insert(0, todo);
 
                 locals
@@ -85,13 +85,40 @@ impl Reducible for TodoState {
     }
 }
 
-fn create_todo(id: &usize, content: &str) -> TodoResponse {
+/// 本地任务的新 id：取现有最大 id + 1。
+/// 之前用列表长度，清空回收站后会和已有任务撞 id。
+fn next_id(locals: &[TodoResponse]) -> i32 {
+    locals.iter().map(|it| it.id).max().map_or(0, |max| max + 1)
+}
+
+fn create_todo(id: i32, content: &str) -> TodoResponse {
     TodoResponse {
         namespace: "local".to_string(),
-        id: *id as i32,
+        id,
         status: TodoStatus::Todo,
         content: content.to_string(),
         created_at: Utc::now(),
         updated_at: Utc::now(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn todo(id: i32, status: TodoStatus) -> TodoResponse {
+        TodoResponse { status, ..create_todo(id, "t") }
+    }
+
+    #[test]
+    fn next_id_starts_at_zero() {
+        assert_eq!(next_id(&[]), 0);
+    }
+
+    #[test]
+    fn next_id_does_not_collide_after_clearing() {
+        // 0,1,2 -> 删除 1 -> 剩 0,2；用长度会得到 2（撞 id），应得到 3
+        let locals = vec![todo(2, TodoStatus::Todo), todo(0, TodoStatus::Done)];
+        assert_eq!(next_id(&locals), 3);
     }
 }

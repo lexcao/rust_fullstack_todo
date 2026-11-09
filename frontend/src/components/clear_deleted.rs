@@ -56,23 +56,18 @@ pub fn clear_deleted_button(ClearDeletedButtonProps { dispatcher }: &ClearDelete
         Callback::from(move |_| confirm_status.set(false))
     };
 
-    let button_text = if *confirm_status {
-        "Confirm to clear ?"
+    let (button_text, button_class) = if *confirm_status {
+        ("Yes, empty the bin", "btn btn-danger")
     } else {
-        "Clear Deleted Todos"
+        ("Empty the bin", "btn btn-ghost")
     };
 
     html! {
-        <div class="field is-grouped is-justify-content-center">
-            <div class="control">
-                <button onclick={on_click} class="button is-text is-fullwidth">{ button_text }</button>
-            </div>
-        if *confirm_status {
-            <div class="control">
-                <a onclick={cancel} class="button is-light">{ "Cancel" }</a>
-            </div>
-        }
+        <div class="bin-actions">
+            <button type="button" onclick={on_click} class={button_class}>{ button_text }</button>
+            if *confirm_status {
+                <button type="button" onclick={cancel} class="btn btn-ghost">{ "Cancel" }</button>
+            }
         </div>
     }
 }
-
