@@ -111,17 +111,11 @@ button { font: inherit; color: inherit; }
     text-decoration: none; color: var(--ink);
 }
 .wordmark:hover { color: var(--ink); }
-.wordmark-glyph {
-    position: relative; width: 22px; height: 22px; border-radius: 7px;
-    background: var(--rust);
-    transition: transform .4s var(--ease);
-}
-.wordmark-glyph::after {
-    content: ""; position: absolute; left: 7px; top: 4px; width: 6px; height: 10px;
-    border: solid var(--on-rust); border-width: 0 2.25px 2.25px 0;
-    transform: rotate(45deg);
-}
-.wordmark:hover .wordmark-glyph { transform: rotate(-8deg) scale(1.06); }
+.wordmark-svg { display: block; height: 28px; width: auto; }
+.wm-mark { fill: var(--rust); transform-origin: 40px 40px; transition: transform .45s var(--ease); }
+.wm-text { fill: currentColor; }
+.wordmark:hover .wm-mark { transform: rotate(-12deg); }
+.wordmark-zh { font: 600 14px/1 var(--font-body); color: var(--ink-3); letter-spacing: .04em; padding-left: 10px; border-left: 1px solid var(--line-strong); }
 .topnav { display: flex; gap: 4px; font-size: 14px; }
 .topnav a {
     padding: 8px 12px; border-radius: 999px; text-decoration: none; color: var(--ink-2);
@@ -146,6 +140,7 @@ button { font: inherit; color: inherit; }
 .intro > :nth-child(3) { animation-delay: .12s; }
 .intro > :nth-child(4) { animation-delay: .18s; }
 .intro > :nth-child(5) { animation-delay: .24s; }
+.intro > :nth-child(6) { animation-delay: .3s; }
 
 .eyebrow {
     display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 28px;
@@ -161,6 +156,14 @@ button { font: inherit; color: inherit; }
     letter-spacing: -.045em;
     color: var(--ink);
     text-wrap: balance;
+}
+.intro-title-zh {
+    display: inline-block; margin-left: .12em;
+    font: 700 .42em/1 var(--font-body); letter-spacing: .02em; color: var(--rust);
+    vertical-align: .9em;
+}
+.tagline {
+    margin: 0 0 20px; font: 500 15px/1.5 var(--font-body); color: var(--ink); letter-spacing: .01em;
 }
 .lede {
     max-width: 34em; margin: 0 0 12px;

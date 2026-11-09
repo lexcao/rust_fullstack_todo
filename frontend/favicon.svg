@@ -1,4 +1,1 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect width="64" height="64" rx="12" fill="#b7472a"/>
-  <text x="32" y="44" text-anchor="middle" font-family="DejaVu Sans, Arial, sans-serif" font-size="36" font-weight="700" fill="#fff8ef">T</text>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"  role="img" aria-label="蟹记 Crabnote"><title>蟹记 Crabnote</title><rect width="64" height="64" rx="14" fill="#f4efe7"/><path fill="#b7472a" d="M32 8a24 24 0 1 0 20.8 12L32 32V8z"/><circle cx="44" cy="13" r="5" fill="#b7472a"/></svg>
