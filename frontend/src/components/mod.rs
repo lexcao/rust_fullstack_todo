@@ -6,7 +6,6 @@ mod datasource_switcher;
 mod tabs;
 
 pub use todo_detail::*;
-pub use todo_detail::*;
 pub use add_todo::*;
 pub use clear_deleted::*;
 pub use datasource_switcher::*;
