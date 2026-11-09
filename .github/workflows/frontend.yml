@@ -12,14 +12,14 @@ env:
 jobs:
   build:
 
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       APP_REMOTE_ENDPOINT: https://rust-fullstack-todo.up.railway.app
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Cache
-      uses: actions/cache@v3.0.2
+      uses: actions/cache@v4
       with:
         path: ~/.cargo
         key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
@@ -28,7 +28,7 @@ jobs:
     - name: Build
       run: cd frontend && trunk build --release
     - name: Publish
-      uses: peaceiris/actions-gh-pages@v3.7.3
+      uses: peaceiris/actions-gh-pages@v4
       with:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         publish_branch: dist
