@@ -1,14 +1,13 @@
-FROM ekidd/rust-musl-builder:latest AS builder
+FROM rust:1.96-bookworm AS builder
+WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends pkg-config libssl-dev && rm -rf /var/lib/apt/lists/*
+COPY . .
+RUN cargo build --locked --release -p backend
 
-ADD --chown=rust:rust . ./
-
-RUN cargo build --release --exclude frontend --workspace
-
-FROM scratch
-
-WORKDIR /home/rust
-
-COPY --from=builder /home/rust/src/target/x86_64-unknown-linux-musl/release/backend backend
-COPY application.toml application.toml
-
+FROM debian:bookworm-slim
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates libssl3 && rm -rf /var/lib/apt/lists/*
+WORKDIR /app
+COPY --from=builder /app/target/release/backend ./backend
+COPY application.toml ./application.toml
+USER 65534:65534
 CMD ["./backend"]
