@@ -9,7 +9,7 @@ You can try it [here](https://todos.lexcao.io), and I also write a blog about it
 
 ### Requirement
 
-* [cargo](https://doc.rust-lang.org/stable/cargo/)
+* [cargo](https://doc.rust-lang.org/stable/cargo/) — Rust 1.99.1 (pinned in `rust-toolchain.toml`, edition 2024)
 * [trunk](https://trunkrs.dev/)
 
 ### Start backend

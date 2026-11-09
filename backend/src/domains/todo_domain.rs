@@ -65,14 +65,14 @@ impl TodoDomainTrait for TodoDomain {
     }
 
     async fn create_todo(&self, namespace: String, content: &str) -> Result<Todo> {
-        self.repo.insert_todo(Todo::create(&namespace, &content)).await
+        self.repo.insert_todo(Todo::create(&namespace, content)).await
     }
 
     async fn update_todo(&self, id: TodoID, to_update: UpdateTodo) -> Result<Todo> {
         let mut found = self.repo.query_by_id(id).await?;
 
-        found.content = to_update.content.unwrap_or_else(|| found.content);
-        let to_status = to_update.status.unwrap_or_else(|| found.status);
+        found.content = to_update.content.unwrap_or(found.content);
+        let to_status = to_update.status.unwrap_or(found.status);
         // TODO check status
         found.status = to_status;
 
@@ -107,8 +107,8 @@ impl TodoDomain {
     pub async fn update_todo(&self, id: TodoID, to_update: UpdateTodo) -> Result<Todo> {
         let mut found = self.repo.query_by_id(id).await?;
 
-        found.content = to_update.content.unwrap_or_else(|| found.content);
-        let to_status = to_update.status.unwrap_or_else(|| found.status);
+        found.content = to_update.content.unwrap_or(found.content);
+        let to_status = to_update.status.unwrap_or(found.status);
         // TODO check status
         found.status = to_status;
 
@@ -163,7 +163,6 @@ pub enum TodoError {
     InvalidStatusFromStr(String),
 }
 
-trait TodoStatusMachine {}
 
 #[cfg(test)]
 mod tests {

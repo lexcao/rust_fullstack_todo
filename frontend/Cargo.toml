@@ -1,17 +1,17 @@
 [package]
 name = "frontend"
 version = "0.2.0"
-edition = "2021"
+edition = "2024"
 license = "MIT"
 
 [dependencies]
-gloo = "0.11"
-yew = "0.21"
-yew-hooks = "0.3"
+gloo = "0.12"
+yew = "0.23"
+yew-hooks = "0.6"
 serde = { version = "1", features = ["derive"] }
 common = { path = "../common" }
 wasm-bindgen-futures = "0.4"
-reqwest = { version = "0.11", features = ["json", "rustls-tls"], default-features = false }
+reqwest = { version = "0.13", features = ["json", "rustls"], default-features = false }
 chrono = { version = "0.4", features = ["serde", "wasmbind"] }
 
 [dependencies.uuid]

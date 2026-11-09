@@ -99,7 +99,7 @@ pub fn app() -> Html {
     } else {
         state.locals
             .iter()
-            .filter(|todo| status_tab.map_or(true, |tab| todo.status == tab))
+            .filter(|todo| status_tab.is_none_or(|tab| todo.status == tab))
             .cloned()
             .collect::<Vec<TodoResponse>>()
     };

@@ -20,7 +20,7 @@ impl Deref for PingClient {
 
 impl PingClient {
     pub async fn ping(&self) -> anyhow::Result<String> {
-        let request = self.inner.get(&format!("{}/ping", self.endpoint));
+        let request = self.inner.get(format!("{}/ping", self.endpoint));
 
         let response = request.send().await?;
 
@@ -35,7 +35,7 @@ impl PingClient {
 
     pub async fn health(&self) -> bool {
         self.ping().await
-            .map(|pong| pong == "pong".to_string())
+            .map(|pong| pong == "pong")
             .unwrap_or_else(|_| false)
     }
 }

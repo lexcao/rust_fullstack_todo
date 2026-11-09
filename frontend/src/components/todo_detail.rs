@@ -95,11 +95,9 @@ pub fn todo_details(TodoDetailsProps { todo, index, dispatcher }: &TodoDetailsPr
     {
         let input_ref = input_ref.clone();
         use_effect_with(*editing, move |editing| {
-            if *editing {
-                if let Some(input) = input_ref.cast::<HtmlInputElement>() {
-                    let _ = input.focus();
-                    input.select();
-                }
+            if *editing && let Some(input) = input_ref.cast::<HtmlInputElement>() {
+                let _ = input.focus();
+                input.select();
             }
             || ()
         });
