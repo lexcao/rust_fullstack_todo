@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://todos.lexcao.io/sitemap.xml
