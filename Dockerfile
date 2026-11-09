@@ -2,7 +2,7 @@ FROM ekidd/rust-musl-builder:latest AS builder
 
 ADD --chown=rust:rust . ./
 
-RUN cargo build --release --exclude frontend --workspace
+RUN cargo build --release -p backend
 
 FROM scratch
 

@@ -31,6 +31,20 @@ $ cargo run --bin backend
 $ cd frontend && trunk serve
 ```
 
+### Tests (all Rust)
+
+```shell
+# unit tests
+$ cargo test -p frontend -p common
+# browser e2e against frontend/dist (needs Chrome + chromedriver on PATH)
+$ cd frontend && trunk build --release && cd ..
+$ cargo test -p e2e -- --ignored
+# screenshots (desktop / mobile, light / dark)
+$ cargo run -p e2e --bin shoot -- local shots
+# regenerate the social card frontend/og.png
+$ cargo run -p og-gen --release
+```
+
 # How it built
 
 Thanks for the open source.
