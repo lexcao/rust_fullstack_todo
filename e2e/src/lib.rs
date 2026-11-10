@@ -3,6 +3,7 @@
 //! 环境变量：
 //! - `E2E_BASE_URL`：被测站点，例如 `https://todos.lexcao.io/?v=1`。不设置时，自带的静态服务器
 //!   会托管 `E2E_DIST`（默认 `frontend/dist`），测本地构建产物。
+//! - `E2E_CLOUD`：设为 `1` 才真正跑云模式用例。没设置时该用例直接返回，避免对生产构建里的远端地址写数据。
 //! - `WEBDRIVER_URL`：已运行的 chromedriver 地址。不设置时，自动启动 `CHROMEDRIVER`（默认 PATH 里的
 //!   `chromedriver`）。
 //! - `CHROME_BIN`：Chrome 可执行文件路径（可选）。
@@ -34,12 +35,34 @@ pub struct Viewport {
 }
 
 impl Viewport {
-    pub const DESKTOP: Viewport = Viewport { name: "desktop", width: 1440, height: 900, mobile: false, dark: false };
-    pub const MOBILE: Viewport = Viewport { name: "mobile", width: 390, height: 844, mobile: true, dark: false };
-    pub const MOBILE_SMALL: Viewport = Viewport { name: "mobile-360", width: 360, height: 800, mobile: true, dark: false };
+    pub const DESKTOP: Viewport = Viewport {
+        name: "desktop",
+        width: 1440,
+        height: 900,
+        mobile: false,
+        dark: false,
+    };
+    pub const MOBILE: Viewport = Viewport {
+        name: "mobile",
+        width: 390,
+        height: 844,
+        mobile: true,
+        dark: false,
+    };
+    pub const MOBILE_SMALL: Viewport = Viewport {
+        name: "mobile-360",
+        width: 360,
+        height: 800,
+        mobile: true,
+        dark: false,
+    };
 
     pub const fn dark(self, name: &'static str) -> Viewport {
-        Viewport { name, dark: true, ..self }
+        Viewport {
+            name,
+            dark: true,
+            ..self
+        }
     }
 }
 
@@ -69,17 +92,27 @@ fn serve_dist(dir: PathBuf) -> String {
     let addr = server.server_addr().to_ip().expect("服务器地址");
     std::thread::spawn(move || {
         for request in server.incoming_requests() {
-            let url = request.url().split(['?', '#']).next().unwrap_or("/").to_string();
+            let url = request
+                .url()
+                .split(['?', '#'])
+                .next()
+                .unwrap_or("/")
+                .to_string();
             let rel = url.trim_start_matches('/');
             let rel = if rel.is_empty() { "index.html" } else { rel };
             let path = dir.join(rel);
             let safe = !rel.split('/').any(|seg| seg == "..");
             let response = match std::fs::read(&path) {
                 Ok(body) if safe => {
-                    let header = tiny_http::Header::from_bytes("Content-Type", content_type(&path)).unwrap();
-                    tiny_http::Response::from_data(body).with_header(header).boxed()
+                    let header =
+                        tiny_http::Header::from_bytes("Content-Type", content_type(&path)).unwrap();
+                    tiny_http::Response::from_data(body)
+                        .with_header(header)
+                        .boxed()
                 }
-                _ => tiny_http::Response::from_string("not found").with_status_code(404).boxed(),
+                _ => tiny_http::Response::from_string("not found")
+                    .with_status_code(404)
+                    .boxed(),
             };
             let _ = request.respond(response);
         }
@@ -96,7 +129,11 @@ pub fn base_url() -> &'static str {
             let dist = std::env::var("E2E_DIST")
                 .map(PathBuf::from)
                 .unwrap_or_else(|_| workspace_root().join("frontend/dist"));
-            assert!(dist.join("index.html").exists(), "找不到 {}/index.html，先运行 trunk build --release", dist.display());
+            assert!(
+                dist.join("index.html").exists(),
+                "找不到 {}/index.html，先运行 trunk build --release",
+                dist.display()
+            );
             serve_dist(dist)
         }
     })
@@ -110,7 +147,11 @@ struct Driver {
 }
 
 fn free_port() -> u16 {
-    std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port()
+    std::net::TcpListener::bind("127.0.0.1:0")
+        .unwrap()
+        .local_addr()
+        .unwrap()
+        .port()
 }
 
 fn driver() -> &'static Driver {
@@ -126,13 +167,18 @@ fn driver() -> &'static Driver {
             .stdout(Stdio::null())
             .stderr(Stdio::null())
             .spawn()
-            .unwrap_or_else(|e| panic!("无法启动 {bin}: {e}（可用 CHROMEDRIVER 或 WEBDRIVER_URL 指定）"));
+            .unwrap_or_else(|e| {
+                panic!("无法启动 {bin}: {e}（可用 CHROMEDRIVER 或 WEBDRIVER_URL 指定）")
+            });
         let deadline = Instant::now() + Duration::from_secs(10);
         while std::net::TcpStream::connect(("127.0.0.1", port)).is_err() {
             assert!(Instant::now() < deadline, "chromedriver 10 秒内没有启动");
             std::thread::sleep(Duration::from_millis(100));
         }
-        Driver { url: format!("http://127.0.0.1:{port}"), _child: Some(child) }
+        Driver {
+            url: format!("http://127.0.0.1:{port}"),
+            _child: Some(child),
+        }
     })
 }
 
@@ -145,16 +191,30 @@ struct Cdp {
 }
 
 impl WebDriverCompatibleCommand for Cdp {
-    fn endpoint(&self, base_url: &url::Url, session_id: Option<&str>) -> Result<url::Url, url::ParseError> {
-        base_url.join(&format!("session/{}/goog/cdp/execute", session_id.unwrap_or_default()))
+    fn endpoint(
+        &self,
+        base_url: &url::Url,
+        session_id: Option<&str>,
+    ) -> Result<url::Url, url::ParseError> {
+        base_url.join(&format!(
+            "session/{}/goog/cdp/execute",
+            session_id.unwrap_or_default()
+        ))
     }
 
     fn method_and_body(&self, _: &url::Url) -> (http::Method, Option<String>) {
-        (http::Method::POST, Some(json!({ "cmd": self.method, "params": self.params }).to_string()))
+        (
+            http::Method::POST,
+            Some(json!({ "cmd": self.method, "params": self.params }).to_string()),
+        )
     }
 }
 
-pub async fn cdp(client: &Client, method: &'static str, params: Value) -> Result<Value, fantoccini::error::CmdError> {
+pub async fn cdp(
+    client: &Client,
+    method: &'static str,
+    params: Value,
+) -> Result<Value, fantoccini::error::CmdError> {
     client.issue_cmd(Cdp { method, params }).await
 }
 
@@ -186,12 +246,16 @@ pub async fn session(viewport: Viewport) -> Client {
         .await
         .expect("连接 chromedriver 失败");
 
-    cdp(&client, "Emulation.setDeviceMetricsOverride", json!({
-        "width": viewport.width,
-        "height": viewport.height,
-        "deviceScaleFactor": if viewport.mobile { 2 } else { 1 },
-        "mobile": viewport.mobile,
-    }))
+    cdp(
+        &client,
+        "Emulation.setDeviceMetricsOverride",
+        json!({
+            "width": viewport.width,
+            "height": viewport.height,
+            "deviceScaleFactor": if viewport.mobile { 2 } else { 1 },
+            "mobile": viewport.mobile,
+        }),
+    )
     .await
     .expect("设置视口");
     cdp(&client, "Emulation.setEmulatedMedia", json!({
@@ -200,9 +264,13 @@ pub async fn session(viewport: Viewport) -> Client {
     .await
     .expect("设置配色");
     if viewport.mobile {
-        cdp(&client, "Emulation.setTouchEmulationEnabled", json!({ "enabled": true, "maxTouchPoints": 5 }))
-            .await
-            .expect("触控模拟");
+        cdp(
+            &client,
+            "Emulation.setTouchEmulationEnabled",
+            json!({ "enabled": true, "maxTouchPoints": 5 }),
+        )
+        .await
+        .expect("触控模拟");
     }
     client
 }
@@ -225,17 +293,28 @@ pub async fn wait_for(client: &Client, css: &str) -> fantoccini::elements::Eleme
 /// 在输入框里输入并回车。
 pub async fn add_todo(client: &Client, text: &str) {
     let input = client.find(Locator::Css("#new-todo")).await.unwrap();
-    input.send_keys(&format!("{text}{}", char::from(fantoccini::key::Key::Enter))).await.unwrap();
+    input
+        .send_keys(&format!(
+            "{text}{}",
+            char::from(fantoccini::key::Key::Enter)
+        ))
+        .await
+        .unwrap();
 }
 
 pub async fn count(client: &Client, css: &str) -> usize {
-    client.find_all(Locator::Css(css)).await.map(|v| v.len()).unwrap_or(0)
+    client
+        .find_all(Locator::Css(css))
+        .await
+        .map(|v| v.len())
+        .unwrap_or(0)
 }
 
 /// 页面是否出现横向滚动。
 pub async fn has_horizontal_overflow(client: &Client) -> bool {
     let html = client.find(Locator::Css("html")).await.unwrap();
-    num_prop(client, &html, "scrollWidth").await > num_prop(client, &html, "clientWidth").await + 0.5
+    num_prop(client, &html, "scrollWidth").await
+        > num_prop(client, &html, "clientWidth").await + 0.5
 }
 
 /// 浏览器控制台里的 SEVERE 级别日志（页面异常会出现在这里）。
@@ -253,12 +332,22 @@ pub async fn severe_logs(client: &Client) -> Vec<String> {
 struct BrowserLog;
 
 impl WebDriverCompatibleCommand for BrowserLog {
-    fn endpoint(&self, base_url: &url::Url, session_id: Option<&str>) -> Result<url::Url, url::ParseError> {
-        base_url.join(&format!("session/{}/se/log", session_id.unwrap_or_default()))
+    fn endpoint(
+        &self,
+        base_url: &url::Url,
+        session_id: Option<&str>,
+    ) -> Result<url::Url, url::ParseError> {
+        base_url.join(&format!(
+            "session/{}/se/log",
+            session_id.unwrap_or_default()
+        ))
     }
 
     fn method_and_body(&self, _: &url::Url) -> (http::Method, Option<String>) {
-        (http::Method::POST, Some(json!({ "type": "browser" }).to_string()))
+        (
+            http::Method::POST,
+            Some(json!({ "type": "browser" }).to_string()),
+        )
     }
 }
 
@@ -287,10 +376,14 @@ pub async fn expand_to_page(client: &Client, viewport: Viewport) {
 }
 
 pub async fn set_metrics(client: &Client, viewport: Viewport, height: u32) {
-    cdp(client, "Emulation.setDeviceMetricsOverride", json!({
-        "width": viewport.width, "height": height,
-        "deviceScaleFactor": if viewport.mobile { 2 } else { 1 }, "mobile": viewport.mobile,
-    }))
+    cdp(
+        client,
+        "Emulation.setDeviceMetricsOverride",
+        json!({
+            "width": viewport.width, "height": height,
+            "deviceScaleFactor": if viewport.mobile { 2 } else { 1 }, "mobile": viewport.mobile,
+        }),
+    )
     .await
     .unwrap();
 }
@@ -300,7 +393,10 @@ pub async fn set_metrics(client: &Client, viewport: Viewport, height: u32) {
 pub async fn num_prop(client: &Client, el: &fantoccini::elements::Element, name: &str) -> f64 {
     let el = serde_json::to_value(el).expect("element json");
     client
-        .execute("return Number(arguments[0][arguments[1]])", vec![el, json!(name)])
+        .execute(
+            "return Number(arguments[0][arguments[1]])",
+            vec![el, json!(name)],
+        )
         .await
         .expect("读属性")
         .as_f64()

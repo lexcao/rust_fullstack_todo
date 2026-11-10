@@ -2,8 +2,9 @@
 //!
 //! ```sh
 //! (cd frontend && trunk build --release)
-//! cargo test -p e2e -- --ignored            # 测本地 frontend/dist
+//! cargo test -p e2e -- --ignored            # 测本地 frontend/dist（浏览器模式）
 //! E2E_BASE_URL='https://todos.lexcao.io/?v=1' cargo test -p e2e -- --ignored   # 测生产
+//! # 云模式：见 README。需要 E2E_CLOUD=1，以及指向本地后端的 frontend/dist-cloud。
 //! ```
 
 use std::time::{Duration, Instant};
@@ -14,27 +15,58 @@ use fantoccini::key::Key;
 use fantoccini::{Client, Locator};
 
 async fn click(client: &Client, css: &str) {
-    client.find(Locator::Css(css)).await.unwrap_or_else(|e| panic!("找不到 {css}: {e}")).click().await.unwrap();
+    client
+        .find(Locator::Css(css))
+        .await
+        .unwrap_or_else(|e| panic!("找不到 {css}: {e}"))
+        .click()
+        .await
+        .unwrap();
 }
 
 async fn click_tab(client: &Client, label: &str) {
     let xpath = format!("//button[contains(@class,'tab')][span[1][normalize-space()='{label}']]");
-    client.find(Locator::XPath(&xpath)).await.unwrap().click().await.unwrap();
+    client
+        .find(Locator::XPath(&xpath))
+        .await
+        .unwrap()
+        .click()
+        .await
+        .unwrap();
 }
 
 async fn first_text(client: &Client) -> String {
-    client.find(Locator::Css(".todo-text")).await.unwrap().text().await.unwrap()
+    client
+        .find(Locator::Css(".todo-text"))
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap()
 }
 
 async fn type_keys(client: &Client, text: &str) {
-    client.active_element().await.unwrap().send_keys(text).await.unwrap();
+    client
+        .active_element()
+        .await
+        .unwrap()
+        .send_keys(text)
+        .await
+        .unwrap();
 }
 
 /// 原 Playwright e2e.js 的 16 项，顺序执行（后一步依赖前一步的状态）。
 #[tokio::test]
 #[ignore = "需要 Chrome + chromedriver，用 --ignored 运行"]
 async fn todo_flow_16_checks() {
-    let c = session(Viewport { name: "flow", width: 1280, height: 900, mobile: false, dark: false }).await;
+    let c = session(Viewport {
+        name: "flow",
+        width: 1280,
+        height: 900,
+        mobile: false,
+        dark: false,
+    })
+    .await;
     open_app(&c).await;
 
     // 1 用回车添加 3 条
@@ -44,14 +76,29 @@ async fn todo_flow_16_checks() {
     assert_eq!(count(&c, ".todo").await, 3, "1 回车添加 3 条");
 
     // 2 空白输入被忽略
-    c.find(Locator::Css("#new-todo")).await.unwrap().send_keys("   ").await.unwrap();
+    c.find(Locator::Css("#new-todo"))
+        .await
+        .unwrap()
+        .send_keys("   ")
+        .await
+        .unwrap();
     click(&c, ".btn-primary").await;
     assert_eq!(count(&c, ".todo").await, 3, "2 空白输入被忽略");
 
     // 3 编辑时输入框自动聚焦
     click(&c, ".todo [data-tip='Edit']").await;
-    let active_class = c.active_element().await.unwrap().attr("class").await.unwrap().unwrap_or_default();
-    assert!(active_class.contains("todo-input"), "3 编辑输入框自动聚焦，实际: {active_class}");
+    let active_class = c
+        .active_element()
+        .await
+        .unwrap()
+        .attr("class")
+        .await
+        .unwrap()
+        .unwrap_or_default();
+    assert!(
+        active_class.contains("todo-input"),
+        "3 编辑输入框自动聚焦，实际: {active_class}"
+    );
 
     // 4 回车保存编辑（输入框内容已全选，直接输入即替换）
     type_keys(&c, &format!("a3-edited{}", char::from(Key::Enter))).await;
@@ -64,17 +111,37 @@ async fn todo_flow_16_checks() {
 
     // 6 勾选完成（aria-checked）
     click(&c, ".check").await;
-    let checked = c.find(Locator::Css(".check")).await.unwrap().attr("aria-checked").await.unwrap();
-    assert_eq!(checked.as_deref(), Some("true"), "6 勾选后 aria-checked=true");
+    let checked = c
+        .find(Locator::Css(".check"))
+        .await
+        .unwrap()
+        .attr("aria-checked")
+        .await
+        .unwrap();
+    assert_eq!(
+        checked.as_deref(),
+        Some("true"),
+        "6 勾选后 aria-checked=true"
+    );
 
     // 7 进度条用真实计数
-    let progress = c.find(Locator::Css(".progress-label")).await.unwrap().text().await.unwrap();
+    let progress = c
+        .find(Locator::Css(".progress-label"))
+        .await
+        .unwrap()
+        .text()
+        .await
+        .unwrap();
     assert_eq!(progress, "1 of 3 done", "7 进度条文字");
 
     // 8 归档第二条，Archived 分组显示 1 条
     c.find_all(Locator::Css(".todo")).await.unwrap()[1]
-        .find(Locator::Css("[data-tip='Archive']")).await.unwrap()
-        .click().await.unwrap();
+        .find(Locator::Css("[data-tip='Archive']"))
+        .await
+        .unwrap()
+        .click()
+        .await
+        .unwrap();
     click_tab(&c, "Archived").await;
     assert_eq!(count(&c, ".todo").await, 1, "8 Archived 分组 1 条");
 
@@ -84,8 +151,22 @@ async fn todo_flow_16_checks() {
     assert_eq!(count(&c, ".todo").await, 1, "9 Bin 分组 1 条");
 
     // 10 清空回收站后显示空状态
-    c.find(Locator::XPath("//button[normalize-space()='Empty the bin']")).await.unwrap().click().await.unwrap();
-    c.find(Locator::XPath("//button[normalize-space()='Yes, empty the bin']")).await.unwrap().click().await.unwrap();
+    c.find(Locator::XPath(
+        "//button[normalize-space()='Empty the bin']",
+    ))
+    .await
+    .unwrap()
+    .click()
+    .await
+    .unwrap();
+    c.find(Locator::XPath(
+        "//button[normalize-space()='Yes, empty the bin']",
+    ))
+    .await
+    .unwrap()
+    .click()
+    .await
+    .unwrap();
     assert_eq!(count(&c, ".empty").await, 1, "10 清空后显示空状态");
 
     // 11 清空后再添加，本地 id 不重复
@@ -93,7 +174,10 @@ async fn todo_flow_16_checks() {
     add_todo(&c, "a4").await;
     add_todo(&c, "a5").await;
     let stored = c
-        .execute(&format!("return localStorage.getItem('{TODOS_KEY}')"), vec![])
+        .execute(
+            &format!("return localStorage.getItem('{TODOS_KEY}')"),
+            vec![],
+        )
         .await
         .unwrap();
     let todos: Vec<serde_json::Value> = serde_json::from_str(stored.as_str().unwrap()).unwrap();
@@ -110,10 +194,21 @@ async fn todo_flow_16_checks() {
 
     // 13 第一次按 Tab 落在跳转链接
     let tab = char::from(Key::Tab);
-    c.perform_actions(KeyActions::new("kb".into()).then(KeyAction::Down { value: tab }).then(KeyAction::Up { value: tab }))
+    c.perform_actions(
+        KeyActions::new("kb".into())
+            .then(KeyAction::Down { value: tab })
+            .then(KeyAction::Up { value: tab }),
+    )
+    .await
+    .unwrap();
+    let active = c
+        .active_element()
         .await
-        .unwrap();
-    let active = c.active_element().await.unwrap().attr("class").await.unwrap().unwrap_or_default();
+        .unwrap()
+        .attr("class")
+        .await
+        .unwrap()
+        .unwrap_or_default();
     assert_eq!(active, "skip-link", "13 首个 Tab 到 skip link");
 
     // 14 / 15 后端离线：出现演示模式提示，Cloud 选项禁用
@@ -123,13 +218,237 @@ async fn todo_flow_16_checks() {
         tokio::time::sleep(Duration::from_millis(250)).await;
     }
     let cloud = &c.find_all(Locator::Css(".switch-option")).await.unwrap()[1];
-    assert!(cloud.attr("disabled").await.unwrap().is_some(), "14 后端离线时 Cloud 禁用");
+    assert!(
+        cloud.attr("disabled").await.unwrap().is_some(),
+        "14 后端离线时 Cloud 禁用"
+    );
 
     // 16 没有页面异常（离线 ping 的失败是预期内的）
     let errors = unexpected_errors(&severe_logs(&c).await);
     assert!(errors.is_empty(), "16 页面报错: {errors:?}");
 
     c.close().await.unwrap();
+}
+
+/// 云模式对本地后端走一遍：增、改、归档、放进回收站再清空。
+///
+/// 没设 `E2E_CLOUD=1` 就直接返回。`cargo test -p e2e -- --ignored` 会扫到这个用例，
+/// 不能让它对生产构建里写死的远端地址写数据。
+#[tokio::test]
+#[ignore = "需要 Chrome、本地后端，以及 E2E_CLOUD=1 和 frontend/dist-cloud"]
+async fn cloud_mode_add_edit_archive_clear() {
+    if std::env::var("E2E_CLOUD").ok().as_deref() != Some("1") {
+        eprintln!("跳过 cloud_mode_add_edit_archive_clear：未设置 E2E_CLOUD=1");
+        return;
+    }
+
+    let c = session(Viewport {
+        name: "cloud",
+        width: 1280,
+        height: 900,
+        mobile: false,
+        dark: false,
+    })
+    .await;
+    open_app(&c).await;
+    switch_to_cloud(&c).await;
+    wait_cloud_settled(&c).await;
+
+    add_todo(&c, "keep-open").await;
+    wait_first_text(&c, "keep-open").await;
+    add_todo(&c, "to-archive").await;
+    wait_first_text(&c, "to-archive").await;
+
+    click(&c, ".todo [data-tip='Edit']").await;
+    wait_editing(&c).await;
+    type_keys(&c, &format!("to-archive-edited{}", char::from(Key::Enter))).await;
+    wait_first_text(&c, "to-archive-edited").await;
+
+    // 先在 All 上看到归档标签，说明 PATCH 已经落库，再切分组。
+    click(&c, ".todo [data-tip='Archive']").await;
+    // CSS text-transform 把标签画成大写，WebDriver 读到的是渲染后的文字。
+    wait_first_tag(&c, "ARCHIVED").await;
+    click_tab(&c, "Archived").await;
+    wait_count_and_text(&c, 1, "to-archive-edited").await;
+
+    click(&c, "[data-tip='Move to bin']").await;
+    wait_empty(&c).await;
+    click_tab(&c, "Bin").await;
+    wait_count_and_text(&c, 1, "to-archive-edited").await;
+
+    c.find(Locator::XPath(
+        "//button[normalize-space()='Empty the bin']",
+    ))
+    .await
+    .unwrap()
+    .click()
+    .await
+    .unwrap();
+    c.find(Locator::XPath(
+        "//button[normalize-space()='Yes, empty the bin']",
+    ))
+    .await
+    .unwrap()
+    .click()
+    .await
+    .unwrap();
+    wait_empty(&c).await;
+
+    click_tab(&c, "All").await;
+    wait_count_and_text(&c, 1, "keep-open").await;
+
+    // 刷新后再进云模式：还在的那条来自后端，回收站仍是空的。
+    c.refresh().await.unwrap();
+    wait_for(&c, "#new-todo").await;
+    switch_to_cloud(&c).await;
+    wait_count_and_text(&c, 1, "keep-open").await;
+    click_tab(&c, "Bin").await;
+    wait_empty(&c).await;
+
+    let errors = unexpected_errors(&severe_logs(&c).await);
+    assert!(errors.is_empty(), "页面报错: {errors:?}");
+    c.close().await.unwrap();
+}
+
+async fn switch_to_cloud(client: &Client) {
+    let deadline = Instant::now() + Duration::from_secs(15);
+    loop {
+        let buttons = client
+            .find_all(Locator::Css(".switch-option"))
+            .await
+            .unwrap();
+        assert_eq!(buttons.len(), 2, "存储切换应该有 Browser 和 Cloud");
+        if buttons[1].attr("disabled").await.unwrap().is_none() {
+            buttons[1].click().await.unwrap();
+            break;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "Cloud 一直不可用（后端没起来，或 dist 里的地址不对）"
+        );
+        tokio::time::sleep(Duration::from_millis(200)).await;
+    }
+    let deadline = Instant::now() + Duration::from_secs(5);
+    loop {
+        let buttons = client
+            .find_all(Locator::Css(".switch-option"))
+            .await
+            .unwrap();
+        let class = buttons[1].attr("class").await.unwrap().unwrap_or_default();
+        if class.contains("is-active") {
+            return;
+        }
+        assert!(Instant::now() < deadline, "点击后没有停在 Cloud");
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+}
+
+/// 第一次 `GET /todos` 已经返回，并且界面不在加载中。
+///
+/// 本地后端一轮请求往往比一次轮询更短，加载文案可能一帧都画不出来，所以看资源计时而不是 `.board-loading`。
+async fn wait_cloud_settled(client: &Client) {
+    let deadline = Instant::now() + Duration::from_secs(10);
+    loop {
+        let fetched = client
+            .execute(
+                "return performance.getEntriesByType('resource').some((entry) => entry.name.indexOf('/todos') !== -1);",
+                vec![],
+            )
+            .await
+            .unwrap();
+        let loading = count(client, ".board-loading").await;
+        if fetched.as_bool() == Some(true) && loading == 0 {
+            return;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "云端列表没有加载完 loading={loading} fetched={fetched}"
+        );
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+}
+
+async fn wait_editing(client: &Client) {
+    let deadline = Instant::now() + Duration::from_secs(5);
+    loop {
+        let active_class = client
+            .active_element()
+            .await
+            .unwrap()
+            .attr("class")
+            .await
+            .unwrap()
+            .unwrap_or_default();
+        if active_class.contains("todo-input") {
+            return;
+        }
+        assert!(Instant::now() < deadline, "编辑框没有聚焦: {active_class}");
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+}
+
+async fn wait_first_text(client: &Client, expected: &str) {
+    let deadline = Instant::now() + Duration::from_secs(10);
+    let mut last = String::new();
+    while Instant::now() < deadline {
+        if count(client, ".todo-text").await > 0 {
+            last = first_text(client).await;
+            if last == expected {
+                return;
+            }
+        }
+        tokio::time::sleep(Duration::from_millis(150)).await;
+    }
+    panic!("等待文本 {expected:?} 超时，最后是 {last:?}");
+}
+
+async fn wait_first_tag(client: &Client, expected: &str) {
+    let deadline = Instant::now() + Duration::from_secs(10);
+    let mut last = String::new();
+    while Instant::now() < deadline {
+        if let Ok(el) = client.find(Locator::Css(".todo-tag")).await {
+            last = el.text().await.unwrap_or_default();
+            if last == expected {
+                return;
+            }
+        }
+        tokio::time::sleep(Duration::from_millis(150)).await;
+    }
+    panic!("等待标签 {expected:?} 超时，最后是 {last:?}");
+}
+
+async fn wait_count_and_text(client: &Client, n: usize, text: &str) {
+    let deadline = Instant::now() + Duration::from_secs(10);
+    let mut last = String::new();
+    let mut last_n = 0;
+    while Instant::now() < deadline {
+        last_n = count(client, ".todo").await;
+        if last_n == n {
+            last = first_text(client).await;
+            if last == text {
+                return;
+            }
+        }
+        tokio::time::sleep(Duration::from_millis(150)).await;
+    }
+    panic!("等待 {n} 条且首条为 {text:?} 超时，实际 {last_n} 条 {last:?}");
+}
+
+async fn wait_empty(client: &Client) {
+    let deadline = Instant::now() + Duration::from_secs(10);
+    loop {
+        let todos = count(client, ".todo").await;
+        let empty = count(client, ".empty").await;
+        let loading = count(client, ".board-loading").await;
+        if loading == 0 && todos == 0 && empty == 1 {
+            return;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "等待空状态超时 todos={todos} empty={empty} loading={loading}"
+        );
+        tokio::time::sleep(Duration::from_millis(150)).await;
+    }
 }
 
 /// 原 tabs-check.js：360 / 390 / 1440 三个宽度，每个 5 项。
@@ -140,19 +459,33 @@ async fn filter_tabs_fit_without_scrolling() {
         let w = vp.width;
         let c = session(vp).await;
         open_app(&c).await;
-        for t in ["Read the Yew chapter", "Wire actix-web to Postgres", "Ship the wasm bundle"] {
+        for t in [
+            "Read the Yew chapter",
+            "Wire actix-web to Postgres",
+            "Ship the wasm bundle",
+        ] {
             add_todo(&c, t).await;
         }
-        c.find_all(Locator::Css(".check")).await.unwrap()[2].click().await.unwrap();
+        c.find_all(Locator::Css(".check")).await.unwrap()[2]
+            .click()
+            .await
+            .unwrap();
         c.find_all(Locator::Css(".todo")).await.unwrap()[1]
-            .find(Locator::Css("[data-tip='Archive']")).await.unwrap()
-            .click().await.unwrap();
+            .find(Locator::Css("[data-tip='Archive']"))
+            .await
+            .unwrap()
+            .click()
+            .await
+            .unwrap();
 
         let nav = c.find(Locator::Css(".tabs")).await.unwrap();
         let (nx, _, nw, _) = nav.rectangle().await.unwrap();
         let scroll_w: f64 = num_prop(&c, &nav, "scrollWidth").await;
         let client_w: f64 = num_prop(&c, &nav, "clientWidth").await;
-        assert!(scroll_w <= client_w + 0.5 && !has_horizontal_overflow(&c).await, "{w}px 标签需要横滑或页面横向溢出");
+        assert!(
+            scroll_w <= client_w + 0.5 && !has_horizontal_overflow(&c).await,
+            "{w}px 标签需要横滑或页面横向溢出"
+        );
 
         let tabs = c.find_all(Locator::Css(".tab")).await.unwrap();
         assert_eq!(tabs.len(), 5);
@@ -160,11 +493,17 @@ async fn filter_tabs_fit_without_scrolling() {
             let (x, _, tw, th) = tab.rectangle().await.unwrap();
             let label = tab.find(Locator::Css("span")).await.unwrap();
             let name = label.text().await.unwrap();
-            assert!(x >= nx - 0.5 && x + tw <= nx + nw + 0.5, "{w}px 标签 {name} 超出可视区");
+            assert!(
+                x >= nx - 0.5 && x + tw <= nx + nw + 0.5,
+                "{w}px 标签 {name} 超出可视区"
+            );
             let lsw: f64 = num_prop(&c, &label, "scrollWidth").await;
             let lcw: f64 = num_prop(&c, &label, "clientWidth").await;
             assert!(lsw <= lcw + 0.5, "{w}px 标签 {name} 文字被截断");
-            assert!(th >= 44.0 && (!vp.mobile || tw >= 44.0), "{w}px 标签 {name} 触控区 {tw}x{th} < 44");
+            assert!(
+                th >= 44.0 && (!vp.mobile || tw >= 44.0),
+                "{w}px 标签 {name} 触控区 {tw}x{th} < 44"
+            );
         }
 
         for tag in c.find_all(Locator::Css(".todo-tag")).await.unwrap() {
@@ -189,11 +528,34 @@ async fn brand_and_seo_head() {
     let title = c.title().await.unwrap();
     assert_eq!(title, "蟹记 Crabnote｜Rust 全栈待办示例");
     // 入场动画期间 opacity 为 0，WebDriver 的可见文字会是空的，所以读 textContent
-    let h1 = c.find(Locator::Css("h1")).await.unwrap().prop("textContent").await.unwrap().unwrap_or_default();
-    assert_eq!(h1.split_whitespace().collect::<Vec<_>>(), ["Crabnote", "蟹记"]);
-    let og = c.find(Locator::Css("meta[property='og:image']")).await.unwrap().attr("content").await.unwrap();
+    let h1 = c
+        .find(Locator::Css("h1"))
+        .await
+        .unwrap()
+        .prop("textContent")
+        .await
+        .unwrap()
+        .unwrap_or_default();
+    assert_eq!(
+        h1.split_whitespace().collect::<Vec<_>>(),
+        ["Crabnote", "蟹记"]
+    );
+    let og = c
+        .find(Locator::Css("meta[property='og:image']"))
+        .await
+        .unwrap()
+        .attr("content")
+        .await
+        .unwrap();
     assert_eq!(og.as_deref(), Some("https://todos.lexcao.io/og.png"));
-    let icon = c.find(Locator::Css("link[rel=icon]")).await.unwrap().attr("href").await.unwrap().unwrap();
+    let icon = c
+        .find(Locator::Css("link[rel=icon]"))
+        .await
+        .unwrap()
+        .attr("href")
+        .await
+        .unwrap()
+        .unwrap();
     assert!(icon.contains("favicon.svg?v="), "favicon 带版本号: {icon}");
     assert!(!has_horizontal_overflow(&c).await);
     c.close().await.unwrap();

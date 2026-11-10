@@ -57,7 +57,8 @@ jobs:
       run: |
         google-chrome --version
         "$CHROMEWEBDRIVER/chromedriver" --version
-        CHROMEDRIVER="$CHROMEWEBDRIVER/chromedriver" cargo test -p e2e -- --ignored
+        # 云模式用例在 cloud-e2e 里单独跑。这里跳过，避免打到本 job 写进 dist 的生产地址。
+        CHROMEDRIVER="$CHROMEWEBDRIVER/chromedriver" cargo test -p e2e -- --ignored --skip cloud_mode_add_edit_archive_clear
     - name: Publish
       if: github.event_name == 'push' && github.ref == 'refs/heads/main'
       uses: peaceiris/actions-gh-pages@v4
@@ -66,3 +67,96 @@ jobs:
         publish_branch: dist
         publish_dir: frontend/dist
         force_orphan: true
+
+  # 云模式：本机 postgres + 本机后端 + 只给测试用的 frontend/dist-cloud。
+  # 不发布，不写 frontend/dist，不使用生产 APP_REMOTE_ENDPOINT。
+  cloud-e2e:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: user
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: rust_fullstack_todo
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U user -d rust_fullstack_todo"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+    - uses: actions/checkout@v4
+    - name: Cache
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/bin
+          ~/.cargo/registry
+          ~/.cargo/git
+          target
+        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+    - name: Toolchain (rust-toolchain.toml)
+      run: |
+        rustup toolchain install
+        rustc -V && cargo -V
+    - name: Install trunk 0.21.14
+      run: |
+        if trunk --version 2>/dev/null | grep -qx 'trunk 0.21.14'; then
+          echo "trunk 0.21.14 已在缓存里"
+        else
+          cargo install trunk --version 0.21.14 --locked --force
+        fi
+        trunk --version
+    - name: Build frontend/dist-cloud
+      working-directory: frontend
+      env:
+        # 只给这次测试用。单独的 target 目录，避免复用带生产地址的编译缓存。
+        APP_REMOTE_ENDPOINT: http://127.0.0.1:3000
+        CARGO_TARGET_DIR: /tmp/crabnote-dist-cloud
+      run: trunk build --release --dist dist-cloud
+    - name: dist-cloud points at the local API and did not touch frontend/dist
+      run: |
+        test ! -e frontend/dist
+        test -f frontend/dist-cloud/index.html
+        mapfile -t wasms < <(find frontend/dist-cloud -name '*.wasm')
+        test "${#wasms[@]}" -gt 0
+        grep -a -q 'http://127.0.0.1:3000' "${wasms[@]}"
+        if grep -a -r -q 'up.railway.app' frontend/dist-cloud; then
+          echo "dist-cloud contains the production API host"
+          exit 1
+        fi
+    # 后台进程会随 step 结束被杀掉，所以后端和 e2e 放在同一步。
+    - name: Cloud-mode e2e against the local backend
+      env:
+        SQLX_OFFLINE: "true"
+        # 与 application.toml / Backend workflow 的本地默认值相同，不是真实密钥。
+        DATABASE_URL: postgres://user:password@localhost:5432/rust_fullstack_todo
+        PORT: "3000"
+      run: |
+        cargo build -p backend
+        cargo run -p backend > "$RUNNER_TEMP/backend.log" 2>&1 &
+        ready=0
+        for _ in $(seq 1 60); do
+          if curl -sf "http://127.0.0.1:3000/healthz" >/dev/null; then
+            ready=1
+            break
+          fi
+          sleep 2
+        done
+        if [ "$ready" != 1 ]; then
+          echo "backend did not become healthy"
+          cat "$RUNNER_TEMP/backend.log"
+          exit 1
+        fi
+        google-chrome --version
+        "$CHROMEWEBDRIVER/chromedriver" --version
+        CHROMEDRIVER="$CHROMEWEBDRIVER/chromedriver" \
+          E2E_CLOUD=1 \
+          E2E_DIST="$PWD/frontend/dist-cloud" \
+          cargo test -p e2e --test app cloud_mode_add_edit_archive_clear -- --ignored --exact
+    - name: Backend log
+      if: failure()
+      run: cat "$RUNNER_TEMP/backend.log" || true

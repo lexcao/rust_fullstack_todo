@@ -2,3 +2,7 @@
 .idea
 *.iml
 dist
+# 云模式 e2e 的临时前端产物，不发布，也不覆盖 frontend/dist
+dist-cloud
+lcov.info
+coverage-summary.txt

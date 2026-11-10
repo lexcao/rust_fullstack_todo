@@ -25,7 +25,7 @@ $ cd backend && cargo run
 $ cargo run --bin backend
 ```
 
-`PORT` and `DATABASE_URL` override `application.toml`. `GET /ping` checks that the process is up; `GET /healthz` also checks the database. See [Deployment.md](Deployment.md).
+`PORT` and `DATABASE_URL` override `application.toml`. `GET /ping` checks that the process is up; `GET /healthz` also checks the database. Logs use `tracing` (`RUST_LOG`, default `info`). SIGTERM and Ctrl-C finish in-flight requests and then exit. See [Deployment.md](Deployment.md).
 
 ### Start frontend
 
@@ -45,6 +45,24 @@ $ cargo test -p e2e -- --ignored
 $ cargo run -p e2e --bin shoot -- local shots
 # regenerate the social card frontend/og.png
 $ cargo run -p og-gen --release
+```
+
+Backend coverage is a baseline only: nothing fails when the number moves. It needs the same local Postgres as the backend tests, plus `llvm-tools-preview`.
+
+```shell
+$ rustup component add llvm-tools-preview
+$ cargo install cargo-llvm-cov --locked
+$ cargo llvm-cov -p backend
+```
+
+Cloud-mode browser test (add, edit, archive, empty the bin) against a backend on this machine. The frontend build goes to `frontend/dist-cloud`, which is gitignored, not published, and does not replace `frontend/dist`. Cargo does not rebuild when only `APP_REMOTE_ENDPOINT` changes, so this build uses its own target directory. `password` below is the docker-compose placeholder, not a production secret.
+
+```shell
+$ cd backend && docker-compose up -d && cd ..
+$ DATABASE_URL=postgres://user:password@localhost:5432/rust_fullstack_todo PORT=3000 cargo run -p backend
+# another shell, from the repo root
+$ (cd frontend && CARGO_TARGET_DIR=/tmp/crabnote-dist-cloud APP_REMOTE_ENDPOINT=http://127.0.0.1:3000 trunk build --release --dist dist-cloud)
+$ E2E_CLOUD=1 E2E_DIST=frontend/dist-cloud cargo test -p e2e --test app cloud_mode_add_edit_archive_clear -- --ignored --exact
 ```
 
 # How it built
