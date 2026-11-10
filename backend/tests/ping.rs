@@ -8,9 +8,7 @@ mod helper;
 async fn test_ping_pong() -> anyhow::Result<()> {
     let endpoint = spawn_server();
 
-    let client = ScopeClient::default()
-        .endpoint(&endpoint)
-        .ping_client();
+    let client = ScopeClient::default().endpoint(&endpoint).ping_client();
 
     let pong = client.ping().await?;
 
@@ -26,7 +24,9 @@ async fn test_ping_server_unavailable() -> anyhow::Result<()> {
         .endpoint("http://127.0.0.1:9999")
         .ping_client();
 
-    let error = client.ping().await
+    let error = client
+        .ping()
+        .await
         .map_err(|e| e.downcast::<reqwest::Error>().unwrap())
         .err()
         .unwrap();
@@ -37,7 +37,10 @@ async fn test_ping_server_unavailable() -> anyhow::Result<()> {
         .map(|e| e.to_string())
         .collect::<Vec<_>>()
         .join(": ");
-    assert!(chain.to_lowercase().contains("connection refused"), "{chain}");
+    assert!(
+        chain.to_lowercase().contains("connection refused"),
+        "{chain}"
+    );
     assert!(!client.health().await);
 
     Ok(())

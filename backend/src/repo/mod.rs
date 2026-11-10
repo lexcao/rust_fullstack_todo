@@ -50,4 +50,6 @@ pub trait TodoRepo: Send + Sync {
     async fn insert_todo(&self, todo: Todo) -> Result<Todo>;
     async fn update_todo(&self, todo: Todo) -> Result<Todo>;
     async fn clear_todos(&self, namespace: String, ids: Vec<i32>) -> Result<bool>;
+    /// `SELECT 1`。失败表示库不可达（`/healthz` 用）。
+    async fn check_db(&self) -> Result<()>;
 }

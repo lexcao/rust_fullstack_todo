@@ -28,6 +28,11 @@ struct MockRepo {
     cleared: Mutex<Vec<(String, Vec<i32>)>>,
     fail_clear: bool,
     list_error: Option<String>,
+    /// `None` 表示新建任务的 `todo`。
+    current_status: Option<TodoStatus>,
+    health_error: bool,
+    /// 放进 `check_db` 的错误文本。日志和响应里都不能出现它。
+    health_secret: String,
 }
 
 fn fixed_todo((namespace, id): TodoID) -> Todo {
@@ -47,7 +52,11 @@ impl TodoRepo for MockRepo {
         if id.1 == MISSING_ID {
             return Err(RecordNotFound.into());
         }
-        Ok(fixed_todo(id))
+        let mut todo = fixed_todo(id);
+        if let Some(status) = self.current_status {
+            todo.status = status;
+        }
+        Ok(todo)
     }
 
     async fn query_todos(
@@ -90,6 +99,16 @@ impl TodoRepo for MockRepo {
             return Err(anyhow::anyhow!("delete failed: secret-token"));
         }
         Ok(true)
+    }
+
+    async fn check_db(&self) -> anyhow::Result<()> {
+        if self.health_error {
+            return Err(anyhow::anyhow!(
+                "database unavailable: {}",
+                self.health_secret
+            ));
+        }
+        Ok(())
     }
 }
 
@@ -312,18 +331,17 @@ async fn non_numeric_patch_id_is_404() {
     assert_eq!(status, StatusCode::NOT_FOUND);
 }
 
-/// 现状：不存在的 id 返回 500（RecordNotFound 没映射）。P3.4 按契约改成 404。
-/// 对外 body 是固定文案，不带库错误。
+/// 不存在的 id：404，JSON `error` 字段，和其它 AppError 4xx 一样。GET 的 404 仍是空 body。
 #[tokio::test]
-async fn missing_id_is_currently_500() {
+async fn missing_id_is_404_with_json_error() {
     let req = json_req(
         "PATCH",
         &format!("/todos/{MISSING_ID}"),
         json!({"content": "x"}),
     );
     let (status, body) = call(Arc::new(MockRepo::default()), req).await;
-    assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
-    assert_eq!(body_str(&body), "internal server error");
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    assert_eq!(body_str(&body), r#"{"error":"not found"}"#);
 }
 
 #[tokio::test]
@@ -365,9 +383,9 @@ async fn empty_ids_is_200_and_touches_nothing() {
     assert!(mock.cleared.lock().unwrap().is_empty());
 }
 
-/// 现状，P3.4 改：DELETE 遇到仓储错误仍然 200。
+/// DELETE 遇到仓储错误返回 500，不再当成成功。对外文案不带库错误。
 #[tokio::test]
-async fn delete_error_is_swallowed_and_returns_200() {
+async fn delete_error_is_500() {
     let mock = Arc::new(MockRepo {
         fail_clear: true,
         ..MockRepo::default()
@@ -377,10 +395,10 @@ async fn delete_error_is_swallowed_and_returns_200() {
         json_req("DELETE", "/todos", json!({"ids": [1]})),
     )
     .await;
-    assert_eq!(status, StatusCode::OK);
-    assert!(body.is_empty());
-    assert_eq!(mock.cleared.lock().unwrap().len(), 1);
+    assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+    assert_eq!(body_str(&body), "internal server error");
     assert!(!body_str(&body).contains("secret-token"));
+    assert_eq!(mock.cleared.lock().unwrap().len(), 1);
 }
 
 #[tokio::test]
@@ -493,4 +511,107 @@ async fn cors_preflight_mirrors_origin_methods_and_headers() {
         .unwrap();
     assert_eq!(response.status(), StatusCode::OK);
     assert_eq!(response.headers()["access-control-allow-origin"], origin);
+}
+
+#[tokio::test]
+async fn fresh_todo_can_move_to_deleted_and_archived_can_move_to_deleted() {
+    let (status, _) = call(
+        Arc::new(MockRepo::default()),
+        json_req("PATCH", "/todos/3", json!({"status": "deleted"})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+
+    let mock = Arc::new(MockRepo {
+        current_status: Some(TodoStatus::Archived),
+        ..MockRepo::default()
+    });
+    let (status, body) = call(
+        mock.clone(),
+        json_req("PATCH", "/todos/3", json!({"status": "deleted"})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{}", body_str(&body));
+    assert_eq!(mock.updated.lock().unwrap()[0].status, TodoStatus::Deleted);
+}
+
+#[tokio::test]
+async fn done_cannot_skip_archive_on_the_way_to_deleted() {
+    let mock = Arc::new(MockRepo {
+        current_status: Some(TodoStatus::Done),
+        ..MockRepo::default()
+    });
+    let (status, body) = call(
+        mock.clone(),
+        json_req("PATCH", "/todos/3", json!({"status": "deleted"})),
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert_eq!(
+        body_str(&body),
+        r#"{"error":"invalid status transition: done -> deleted"}"#
+    );
+    assert!(mock.updated.lock().unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn healthz_is_200_or_503_from_the_repo_check() {
+    let (status, body) = call(Arc::new(MockRepo::default()), get("/healthz")).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(body.is_empty());
+
+    let secret = "db-secret-do-not-log";
+    let (status, body) = call(
+        Arc::new(MockRepo {
+            health_error: true,
+            health_secret: secret.to_owned(),
+            ..MockRepo::default()
+        }),
+        get("/healthz"),
+    )
+    .await;
+    assert_eq!(status, StatusCode::SERVICE_UNAVAILABLE);
+    assert_eq!(body_str(&body), r#"{"error":"database unavailable"}"#);
+    assert!(!body_str(&body).contains(secret));
+}
+
+#[tokio::test]
+async fn request_timeout_is_408() {
+    let app = super::with_observability(
+        axum::Router::new().route(
+            "/slow",
+            axum::routing::get(|| async {
+                tokio::time::sleep(Duration::from_secs(2)).await;
+                "late"
+            }),
+        ),
+        Duration::from_millis(200),
+    );
+    let response = app.oneshot(get("/slow")).await.unwrap();
+    assert_eq!(response.status(), StatusCode::REQUEST_TIMEOUT);
+}
+
+#[tokio::test]
+async fn request_id_is_echoed() {
+    let request_id = "req-trace-7c2a";
+    let response = router(Arc::new(MockRepo::default()))
+        .oneshot(
+            Request::builder()
+                .uri("/ping")
+                .header("x-request-id", request_id)
+                .body(Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(response.headers()["x-request-id"], request_id);
+    assert_eq!(response.status(), StatusCode::OK);
+
+    let generated = router(Arc::new(MockRepo::default()))
+        .oneshot(get("/ping"))
+        .await
+        .unwrap();
+    let generated_id = generated.headers()["x-request-id"].to_str().unwrap();
+    assert!(!generated_id.is_empty());
+    assert_ne!(generated_id, request_id);
 }

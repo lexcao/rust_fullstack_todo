@@ -2,15 +2,19 @@
 
 use backend::infra::{config, db};
 use backend::start_server;
-use env_logger::Env;
+use tracing_subscriber::EnvFilter;
+
+fn init_tracing() {
+    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
+    tracing_subscriber::fmt().with_env_filter(filter).init();
+}
 
 #[tokio::main]
 async fn main() -> std::io::Result<()> {
-    env_logger::builder()
-        .parse_env(Env::default().default_filter_or("INFO"))
-        .init();
+    init_tracing();
 
     let config = config::must_get();
+    config::log_loaded(&config);
 
     let db_pool: sqlx::PgPool = db::must_init(&config.db).into();
 
@@ -18,7 +22,7 @@ async fn main() -> std::io::Result<()> {
     db::migrate(&db_pool)
         .await
         .map_err(|e| std::io::Error::other(format!("{e:#}")))?;
-    log::info!("database migrations are up to date");
+    tracing::info!("database migrations are up to date");
 
     start_server(config.address(), db_pool).await
 }
