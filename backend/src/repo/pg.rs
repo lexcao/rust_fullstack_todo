@@ -161,6 +161,11 @@ impl TodoRepo for PgTodoRepo {
     async fn clear_todos(&self, namespace: String, ids: Vec<i32>) -> Result<bool> {
         self.clear(namespace, ids).await
     }
+
+    async fn check_db(&self) -> Result<()> {
+        sqlx::query("SELECT 1").fetch_one(&self.db).await?;
+        Ok(())
+    }
 }
 
 /// 写库：`updated_at` 总是取当前时间（插入和更新都是），和之前的行为一致。

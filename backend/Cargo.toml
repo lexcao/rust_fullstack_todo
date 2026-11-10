@@ -6,10 +6,11 @@ license = "MIT"
 
 [dependencies]
 axum = "0.8"
-tower-http = { version = "0.7", features = ["cors"] }
-tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "io-util", "time"] }
-env_logger = "0.11"
-log = "0.4"
+tower-http = { version = "0.7", features = ["cors", "request-id", "timeout", "trace"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "io-util", "time", "signal"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+secrecy = "0.10"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 # 纯 Rust Postgres 驱动 + rustls（ring + webpki 根证书）：不依赖 OpenSSL，也不依赖系统 CA。

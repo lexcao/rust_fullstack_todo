@@ -1,4 +1,4 @@
-use common::client::{TodoClient, ScopeClient};
+use common::client::{ScopeClient, TodoClient};
 use common::model::{CreateTodoRequest, TodoResponse, TodoStatus, UpdateTodoRequest};
 use sqlx::PgPool;
 
@@ -33,15 +33,21 @@ async fn get_todos_not_empty(pool: PgPool) -> anyhow::Result<()> {
         .namespace(&format!("{}{}", NS, "/not_empty"))
         .todo_client();
 
-    let todo_1 = client.create_todo(CreateTodoRequest {
-        content: "create todo 1".to_string(),
-    }).await?;
-    let todo_2 = client.create_todo(CreateTodoRequest {
-        content: "create todo 2".to_string(),
-    }).await?;
-    let todo_3 = client.create_todo(CreateTodoRequest {
-        content: "create todo 3".to_string(),
-    }).await?;
+    let todo_1 = client
+        .create_todo(CreateTodoRequest {
+            content: "create todo 1".to_string(),
+        })
+        .await?;
+    let todo_2 = client
+        .create_todo(CreateTodoRequest {
+            content: "create todo 2".to_string(),
+        })
+        .await?;
+    let todo_3 = client
+        .create_todo(CreateTodoRequest {
+            content: "create todo 3".to_string(),
+        })
+        .await?;
 
     let todos = client.get_todos(None).await?;
 
@@ -50,11 +56,9 @@ async fn get_todos_not_empty(pool: PgPool) -> anyhow::Result<()> {
     assert_eq!(expect, actual);
 
     // clean data
-    client.clear_todos(vec![
-        todo_1.id,
-        todo_2.id,
-        todo_3.id,
-    ]).await?;
+    client
+        .clear_todos(vec![todo_1.id, todo_2.id, todo_3.id])
+        .await?;
 
     Ok(())
 }
@@ -81,17 +85,23 @@ async fn get_todos_query_status(pool: PgPool) -> anyhow::Result<()> {
     assert_todos_with_status(&client, Some(TodoStatus::Deleted), vec![&deleted_todo]).await?;
 
     // clean data
-    client.clear_todos(vec![
-        todo_todo.id,
-        done_todo.id,
-        archive_todo.id,
-        deleted_todo.id,
-    ]).await?;
+    client
+        .clear_todos(vec![
+            todo_todo.id,
+            done_todo.id,
+            archive_todo.id,
+            deleted_todo.id,
+        ])
+        .await?;
 
     Ok(())
 }
 
-async fn assert_todos_with_status(client: &TodoClient, status: Option<TodoStatus>, expect: Vec<&TodoResponse>) -> anyhow::Result<()> {
+async fn assert_todos_with_status(
+    client: &TodoClient,
+    status: Option<TodoStatus>,
+    expect: Vec<&TodoResponse>,
+) -> anyhow::Result<()> {
     let todos = client.get_todos(status).await?;
     let actual = todos.iter().collect::<Vec<&TodoResponse>>();
     assert_eq!(expect, actual);
@@ -99,15 +109,25 @@ async fn assert_todos_with_status(client: &TodoClient, status: Option<TodoStatus
     Ok(())
 }
 
-async fn create_todo_with_status(client: &TodoClient, status: Option<TodoStatus>) -> anyhow::Result<TodoResponse> {
-    let created = client.create_todo(CreateTodoRequest {
-        content: format!("create todo with status {:?}", status),
-    }).await?;
+async fn create_todo_with_status(
+    client: &TodoClient,
+    status: Option<TodoStatus>,
+) -> anyhow::Result<TodoResponse> {
+    let created = client
+        .create_todo(CreateTodoRequest {
+            content: format!("create todo with status {:?}", status),
+        })
+        .await?;
 
-    let response = client.update_todo(created.id, UpdateTodoRequest {
-        content: None,
-        status,
-    }).await?;
+    let response = client
+        .update_todo(
+            created.id,
+            UpdateTodoRequest {
+                content: None,
+                status,
+            },
+        )
+        .await?;
 
     Ok(response)
 }
@@ -127,9 +147,11 @@ async fn get_todo_by_id(pool: PgPool) -> anyhow::Result<()> {
 async fn create_todo(pool: PgPool) -> anyhow::Result<()> {
     let client = client(pool);
 
-    let data = client.create_todo(CreateTodoRequest {
-        content: "create a new todo".to_string(),
-    }).await?;
+    let data = client
+        .create_todo(CreateTodoRequest {
+            content: "create a new todo".to_string(),
+        })
+        .await?;
 
     assert_eq!("create a new todo", data.content);
     assert_eq!(TodoStatus::Todo, data.status);
@@ -148,17 +170,24 @@ async fn update_todo(pool: PgPool) -> anyhow::Result<()> {
     let client = client(pool);
 
     // create first
-    let created = client.create_todo(CreateTodoRequest {
-        content: "Create todo for update".to_string(),
-    }).await?;
+    let created = client
+        .create_todo(CreateTodoRequest {
+            content: "Create todo for update".to_string(),
+        })
+        .await?;
 
     let id = created.id;
 
     // then update
-    let updated = client.update_todo(id, UpdateTodoRequest {
-        content: Some("Update todo".to_string()),
-        status: Some(TodoStatus::Done),
-    }).await?;
+    let updated = client
+        .update_todo(
+            id,
+            UpdateTodoRequest {
+                content: Some("Update todo".to_string()),
+                status: Some(TodoStatus::Done),
+            },
+        )
+        .await?;
 
     // assert
     client.assert_eq(id, &updated).await?;

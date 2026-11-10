@@ -25,6 +25,8 @@ $ cd backend && cargo run
 $ cargo run --bin backend
 ```
 
+`PORT` and `DATABASE_URL` override `application.toml`. `GET /ping` checks that the process is up; `GET /healthz` also checks the database. See [Deployment.md](Deployment.md).
+
 ### Start frontend
 
 ```shell
@@ -52,9 +54,9 @@ Thanks for the open source.
 ### Backend
 
 * rust: [book](https://doc.rust-lang.org/book/)
-* web: [actix-web](https://github.com/actix/actix-web)
+* web: [axum](https://github.com/tokio-rs/axum)
 * async: [tokio](https://github.com/tokio-rs/tokio)
-* db: [postgres](https://github.com/sfackler/rust-postgres)
+* db: [sqlx](https://github.com/launchbadge/sqlx) + [postgres](https://www.postgresql.org/)
 * more to [see](./backend/Cargo.toml)
 
 ### Frontend

@@ -24,9 +24,18 @@ fn spawn(pool: PgPool, migrate: bool) -> String {
     // 服务在后台跑到测试进程结束，不等待 JoinHandle
     drop(tokio::spawn(async move {
         if migrate {
-            backend::infra::db::migrate(&pool).await.expect("migration failed");
+            backend::infra::db::migrate(&pool)
+                .await
+                .expect("migration failed");
         }
-        backend::start_server(listener, pool).await
+        // 测试进程里不注册 SIGTERM/Ctrl-C，免得和专门的停机测试抢信号。
+        let repo = std::sync::Arc::new(backend::repo::PgTodoRepo::new(pool));
+        backend::serve(
+            listener,
+            backend::http::router(repo),
+            std::future::pending(),
+        )
+        .await
     }));
     format!("http://127.0.0.1:{}", port)
 }

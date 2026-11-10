@@ -7,14 +7,14 @@ use sqlx::postgres::{PgArguments, PgConnectOptions, PgPoolOptions, PgRow, PgSslM
 use sqlx::query::Query;
 use sqlx::{PgPool, Postgres};
 
-use super::config::DbConfig;
+use super::config::{self, DbConfig};
 
 /// 内嵌的迁移（`backend/migrations`）。`0001_init.sql` 与 `schemas/00_init_tables.sql` 逐字节相同。
 pub static MIGRATOR: sqlx::migrate::Migrator = sqlx::migrate!();
 
 pub fn connect_options(config: &DbConfig) -> anyhow::Result<PgConnectOptions> {
     if let Some(url) = &config.url {
-        return PgConnectOptions::from_str(url).context("invalid db.url");
+        return PgConnectOptions::from_str(config::expose(url)).context("invalid db.url");
     }
     let mut opts = PgConnectOptions::new_without_pgpass();
     if let Some(v) = &config.host {
@@ -27,13 +27,14 @@ pub fn connect_options(config: &DbConfig) -> anyhow::Result<PgConnectOptions> {
         opts = opts.username(v);
     }
     if let Some(v) = &config.password {
-        opts = opts.password(v);
+        opts = opts.password(config::expose(v));
     }
     if let Some(v) = &config.dbname {
         opts = opts.database(v);
     }
     let sslmode = config.sslmode.as_deref().unwrap_or("prefer");
-    let sslmode = PgSslMode::from_str(sslmode).with_context(|| format!("invalid db.sslmode `{sslmode}`"))?;
+    let sslmode =
+        PgSslMode::from_str(sslmode).with_context(|| format!("invalid db.sslmode `{sslmode}`"))?;
     Ok(opts.ssl_mode(sslmode))
 }
 
@@ -45,7 +46,10 @@ pub fn must_init(config: &DbConfig) -> Pool {
 
 /// 启动时跑迁移；并发启动时 sqlx 用 advisory lock 串行化，已执行的迁移会校验 checksum。
 pub async fn migrate(pool: &PgPool) -> anyhow::Result<()> {
-    MIGRATOR.run(pool).await.context("database migration failed")
+    MIGRATOR
+        .run(pool)
+        .await
+        .context("database migration failed")
 }
 
 /// sqlx 连接池的薄包装。
@@ -79,7 +83,11 @@ impl Client {
     /// 执行一条带位置参数（`$1`…）的查询，返回所有行。
     ///
     /// `sql` 只能是调用方写死的语句，值一律走 `params` 绑定，不要把外部输入拼进 `sql`。
-    pub async fn query(&self, sql: &str, params: &[&(dyn Param + Sync)]) -> Result<Vec<Row>, sqlx::Error> {
+    pub async fn query(
+        &self,
+        sql: &str,
+        params: &[&(dyn Param + Sync)],
+    ) -> Result<Vec<Row>, sqlx::Error> {
         let mut q = sqlx::query(sqlx::AssertSqlSafe(sql.to_owned()));
         for p in params {
             q = p.bind_to(q);
@@ -102,7 +110,10 @@ impl Row {
 
 /// 能绑定到 [`Client::query`] 的参数类型。
 pub trait Param {
-    fn bind_to<'q>(&'q self, q: Query<'q, Postgres, PgArguments>) -> Query<'q, Postgres, PgArguments>;
+    fn bind_to<'q>(
+        &'q self,
+        q: Query<'q, Postgres, PgArguments>,
+    ) -> Query<'q, Postgres, PgArguments>;
 }
 
 macro_rules! param {
@@ -137,25 +148,57 @@ mod tests {
 
     #[test]
     fn sslmode_defaults_to_prefer_and_accepts_verify_full() {
-        let cfg = DbConfig { host: Some("db.example".into()), ..Default::default() };
-        assert!(matches!(connect_options(&cfg).unwrap().get_ssl_mode(), PgSslMode::Prefer));
-        let cfg = DbConfig { sslmode: Some("verify-full".into()), ..cfg };
-        assert!(matches!(connect_options(&cfg).unwrap().get_ssl_mode(), PgSslMode::VerifyFull));
-        let cfg = DbConfig { url: Some("postgresql://u@neon.example/db?sslmode=verify-full".into()), ..Default::default() };
+        let cfg = DbConfig {
+            host: Some("db.example".into()),
+            ..Default::default()
+        };
+        assert!(matches!(
+            connect_options(&cfg).unwrap().get_ssl_mode(),
+            PgSslMode::Prefer
+        ));
+        let cfg = DbConfig {
+            sslmode: Some("verify-full".into()),
+            ..cfg
+        };
+        assert!(matches!(
+            connect_options(&cfg).unwrap().get_ssl_mode(),
+            PgSslMode::VerifyFull
+        ));
+        let cfg = DbConfig {
+            url: Some("postgresql://u@neon.example/db?sslmode=verify-full".into()),
+            ..Default::default()
+        };
         let opts = connect_options(&cfg).unwrap();
         assert!(matches!(opts.get_ssl_mode(), PgSslMode::VerifyFull));
         assert_eq!(opts.get_host(), "neon.example");
-        assert!(connect_options(&DbConfig { sslmode: Some("bogus".into()), ..Default::default() }).is_err());
+        assert!(
+            connect_options(&DbConfig {
+                sslmode: Some("bogus".into()),
+                ..Default::default()
+            })
+            .is_err()
+        );
     }
 
     /// verify-full 不允许降级到明文：对不开 TLS 的本地/CI 库必须连不上。
     #[tokio::test]
     async fn verify_full_refuses_a_server_without_tls() {
         let mut cfg = config::must_get().db;
-        cfg.url = std::env::var("DATABASE_URL").ok();
-        let opts = connect_options(&cfg).unwrap().ssl_mode(PgSslMode::VerifyFull);
-        let err = PgPoolOptions::new().max_connections(1).connect_with(opts).await.err();
+        cfg.url = std::env::var("DATABASE_URL")
+            .ok()
+            .map(secrecy::SecretString::from);
+        let opts = connect_options(&cfg)
+            .unwrap()
+            .ssl_mode(PgSslMode::VerifyFull);
+        let err = PgPoolOptions::new()
+            .max_connections(1)
+            .connect_with(opts)
+            .await
+            .err();
         let err = err.expect("verify-full 连上了不支持 TLS 的库");
-        assert!(matches!(err, sqlx::Error::Tls(_)), "应是 TLS 错误，实际：{err:?}");
+        assert!(
+            matches!(err, sqlx::Error::Tls(_)),
+            "应是 TLS 错误，实际：{err:?}"
+        );
     }
 }

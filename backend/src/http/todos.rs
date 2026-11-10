@@ -1,8 +1,4 @@
 //! `/todos` 的五个 handler。规则在 `service`，SQL 在 `repo`。
-//!
-//! 两处现状刻意保留，契约测试锁着，P3.4 再改：
-//! - PATCH 一个不存在的 id：`RecordNotFound` 没有单独映射，走 `AppError::Internal`，返回 500。
-//! - DELETE 的仓储错误被吞掉，仍然 200。
 
 use axum::Json;
 use axum::extract::{Query, State};
@@ -15,7 +11,7 @@ use crate::http::extract::{Namespace, TodoId};
 use crate::http::{AppError, AppState};
 use crate::infra::db::RecordNotFound;
 use crate::repo::Todo;
-use crate::service::{self, UpdateTodo};
+use crate::service::{self, TodoError, UpdateTodo};
 
 #[derive(Deserialize)]
 pub(crate) struct ListQuery {
@@ -66,8 +62,7 @@ pub async fn update_todo(
         ));
     }
 
-    // 不存在的 id 不在这里转成 404，随 anyhow 变成 500。P3.4 改。
-    let updated = service::update_todo(
+    let updated = match service::update_todo(
         state.repo.as_ref(),
         (namespace, id),
         UpdateTodo {
@@ -75,7 +70,17 @@ pub async fn update_todo(
             status: body.status,
         },
     )
-    .await?;
+    .await
+    {
+        Ok(todo) => todo,
+        Err(err) if is_not_found(&err) => {
+            return Err(AppError::NotFoundJson("not found".to_owned()));
+        }
+        Err(err) if is_status_transition(&err) => {
+            return Err(AppError::BadRequest(err.to_string()));
+        }
+        Err(err) => return Err(err.into()),
+    };
     Ok(Json(TodoResponse::from(updated)))
 }
 
@@ -83,18 +88,22 @@ pub async fn clear_todos(
     State(state): State<AppState>,
     Namespace(namespace): Namespace,
     body: JsonBody<IdsRequest<i32>>,
-) -> StatusCode {
+) -> Result<StatusCode, AppError> {
     let ids = body.0.ids;
     if !ids.is_empty() {
-        // 现状：数据库错误被吞掉，仍然 200。P3.4 改成 500。
-        let _ = service::clear_todos(state.repo.as_ref(), namespace, ids).await;
+        service::clear_todos(state.repo.as_ref(), namespace, ids).await?;
     }
-    StatusCode::OK
+    Ok(StatusCode::OK)
 }
 
 fn is_not_found(err: &anyhow::Error) -> bool {
     err.chain()
         .any(|cause| cause.downcast_ref::<RecordNotFound>().is_some())
+}
+
+fn is_status_transition(err: &anyhow::Error) -> bool {
+    err.chain()
+        .any(|cause| cause.downcast_ref::<TodoError>().is_some())
 }
 
 impl From<Todo> for TodoResponse {
