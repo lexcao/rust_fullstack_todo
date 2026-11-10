@@ -4,7 +4,7 @@ use crate::helper::spawn_server;
 
 mod helper;
 
-#[actix_web::test]
+#[tokio::test]
 async fn test_ping_pong() -> anyhow::Result<()> {
     let endpoint = spawn_server();
 
@@ -20,7 +20,7 @@ async fn test_ping_pong() -> anyhow::Result<()> {
     Ok(())
 }
 
-#[actix_web::test]
+#[tokio::test]
 async fn test_ping_server_unavailable() -> anyhow::Result<()> {
     let client = ScopeClient::default()
         .endpoint("http://127.0.0.1:9999")

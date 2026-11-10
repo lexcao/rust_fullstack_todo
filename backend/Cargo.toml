@@ -5,9 +5,9 @@ edition = "2024"
 license = "MIT"
 
 [dependencies]
-actix-web = { version = "4", features = ["rustls"] }
-actix-cors = "0.7"
-tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+axum = "0.8"
+tower-http = { version = "0.7", features = ["cors"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "net", "io-util", "time"] }
 env_logger = "0.11"
 log = "0.4"
 serde = { version = "1", features = ["derive"] }
@@ -24,3 +24,6 @@ common = { path = "../common" }
 
 [dev-dependencies]
 reqwest = { version = "0.13", features = ["json", "rustls"], default-features = false }
+# oneshot：handler 单测直接打 Router，不连数据库。
+tower = { version = "0.5", features = ["util"] }
+http-body-util = "0.1"
