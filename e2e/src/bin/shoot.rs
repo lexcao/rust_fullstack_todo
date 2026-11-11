@@ -8,7 +8,12 @@ use std::time::Duration;
 use e2e::*;
 use fantoccini::Locator;
 
-const TASKS: [&str; 4] = ["Read the Yew chapter", "Wire actix-web to Postgres", "Ship the wasm bundle", "Write the retro"];
+const TASKS: [&str; 4] = [
+    "Read the Yew chapter",
+    "Wire actix-web to Postgres",
+    "Ship the wasm bundle",
+    "Write the retro",
+];
 
 #[tokio::main]
 async fn main() {
@@ -42,8 +47,18 @@ async fn main() {
         let checks = c.find_all(Locator::Css(".check")).await.unwrap();
         checks[3].click().await.unwrap();
         checks[2].click().await.unwrap();
-        c.find(Locator::Css("#new-todo")).await.unwrap().click().await.ok();
-        c.execute("document.activeElement.blur(); window.scrollTo(0, 0)", vec![]).await.unwrap();
+        c.find(Locator::Css("#new-todo"))
+            .await
+            .unwrap()
+            .click()
+            .await
+            .ok();
+        c.execute(
+            "document.activeElement.blur(); window.scrollTo(0, 0)",
+            vec![],
+        )
+        .await
+        .unwrap();
         tokio::time::sleep(Duration::from_millis(700)).await;
 
         let summary = format!(
@@ -59,7 +74,15 @@ async fn main() {
         // 先拉高视口再截面板，否则手机上面板会被视口裁掉
         expand_to_page(&c, vp).await;
         save(format!("{}-full", vp.name), c.screenshot().await.unwrap());
-        save(format!("{}-board", vp.name), c.find(Locator::Css(".board")).await.unwrap().screenshot().await.unwrap());
+        save(
+            format!("{}-board", vp.name),
+            c.find(Locator::Css(".board"))
+                .await
+                .unwrap()
+                .screenshot()
+                .await
+                .unwrap(),
+        );
         set_metrics(&c, vp, vp.height).await;
         c.close().await.unwrap();
     }

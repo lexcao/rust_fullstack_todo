@@ -77,3 +77,36 @@ jobs:
       run: cargo clippy -p backend --all-targets -- -D warnings
     - name: Test
       run: cargo test -p backend
+    - name: Install llvm-tools-preview
+      run: rustup component add llvm-tools-preview
+    - name: Install cargo-llvm-cov
+      uses: taiki-e/install-action@v2
+      with:
+        tool: cargo-llvm-cov
+    # 只记录基线：不传 --fail-under-*，覆盖率高低都不让这一步失败。
+    # 测试只跑一遍（--no-report），数字和 lcov 都从同一份 profdata 生成。
+    - name: Coverage
+      env:
+        CARGO_TERM_COLOR: never
+      run: |
+        set -o pipefail
+        cargo llvm-cov -p backend --no-report --color never
+        cargo llvm-cov report -p backend --color never | tee coverage-summary.txt
+        cargo llvm-cov report -p backend --lcov --output-path lcov.info
+        test -s lcov.info
+        grep -q '%' coverage-summary.txt
+        {
+          echo '## Backend coverage'
+          echo
+          echo '基线记录，没有阈值。'
+          echo
+          echo '```'
+          cat coverage-summary.txt
+          echo '```'
+        } >> "$GITHUB_STEP_SUMMARY"
+    - name: Upload lcov
+      uses: actions/upload-artifact@v4
+      with:
+        name: backend-lcov
+        path: lcov.info
+        if-no-files-found: error
