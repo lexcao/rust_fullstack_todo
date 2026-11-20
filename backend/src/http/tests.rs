@@ -28,6 +28,7 @@ struct MockRepo {
     cleared: Mutex<Vec<(String, Vec<i32>)>>,
     fail_clear: bool,
     list_error: Option<String>,
+    query_error: Option<String>,
     /// `None` 表示新建任务的 `todo`。
     current_status: Option<TodoStatus>,
     health_error: bool,
@@ -49,6 +50,9 @@ fn fixed_todo((namespace, id): TodoID) -> Todo {
 #[async_trait::async_trait]
 impl TodoRepo for MockRepo {
     async fn query_by_id(&self, id: TodoID) -> anyhow::Result<Todo> {
+        if let Some(message) = &self.query_error {
+            return Err(anyhow::anyhow!("{message}"));
+        }
         if id.1 == MISSING_ID {
             return Err(RecordNotFound.into());
         }
@@ -260,6 +264,19 @@ async fn missing_is_404_with_empty_body() {
     .await;
     assert_eq!(status, StatusCode::NOT_FOUND);
     assert!(body.is_empty());
+}
+
+#[tokio::test]
+async fn get_todo_failure_is_generic_500() {
+    let mock = Arc::new(MockRepo {
+        query_error: Some("db password=secret-token".into()),
+        ..MockRepo::default()
+    });
+    let (status, body) = call(mock, get("/todos/1")).await;
+    assert_eq!(status, StatusCode::INTERNAL_SERVER_ERROR);
+    let text = body_str(&body);
+    assert_eq!(text, "internal server error");
+    assert!(!text.contains("secret-token") && !text.contains("password"));
 }
 
 #[tokio::test]
